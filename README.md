@@ -66,7 +66,9 @@
 * 全新设置界面：左侧导航、玻璃卡片和分区配置页面。
 * 全新纯图标径向菜单，环内不显示动作名称。
 * 重新设计睡眠、音量、锁定、关机、重启等系统操作图标。
+* 液态玻璃只处理圆环覆盖区域，包含背景折射、实时焦散和动态高光，不启用矩形系统背景材质。
 * 鼠标靠近屏幕边缘时，圆环会自动移动到可完整显示的位置。
+* 可选鼠标手势：同时按住左右键，上滑打开开始菜单，下滑显示桌面，左右滑打开并切换 `Alt+Tab` 窗口。
 * 设置修改后自动保存。
 * 支持随 Windows 启动并常驻系统托盘。
 
@@ -137,7 +139,9 @@ It is designed for Windows users who frequently switch apps, open repeated locat
 * Redesigned settings window with side navigation, glass cards, and section-based configuration pages.
 * Icon-only radial menu without action names inside the wheel.
 * Redesigned icons for sleep, volume, lock, shutdown, restart, and other system actions.
+* Liquid glass is rendered only inside the wheel, with local refraction, realtime caustics, and animated highlights instead of a rectangular system backdrop.
 * Automatically repositions the wheel near screen edges so the full menu remains visible.
+* Optional mouse gestures: hold both mouse buttons, then swipe up for Start, down for the desktop, or horizontally to open and navigate Alt+Tab.
 * Saves settings automatically after changes.
 * Supports Windows startup and persistent system tray operation.
 

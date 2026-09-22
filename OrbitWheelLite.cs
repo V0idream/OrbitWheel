@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Reflection;
@@ -40,6 +41,7 @@ namespace OrbitWheelLite
         public string Mode { get; set; }
         public string Style { get; set; }
         public bool StartWithWindows { get; set; }
+        public bool MouseGestures { get; set; }
         public List<WheelPage> Pages { get; set; }
 
         public static AppConfig Default()
@@ -50,6 +52,7 @@ namespace OrbitWheelLite
                 Mode = "Hold",
                 Style = "液态玻璃",
                 StartWithWindows = false,
+                MouseGestures = false,
                 Pages = new List<WheelPage> {
                     new WheelPage {
                         Name = "常用",
@@ -114,8 +117,23 @@ namespace OrbitWheelLite
     {
         public const int WM_HOTKEY = 0x0312;
         public const int WH_KEYBOARD_LL = 13;
+        public const int WH_MOUSE_LL = 14;
         public const int WM_KEYUP = 0x0101;
         public const int WM_SYSKEYUP = 0x0105;
+        public const int WM_TIMER = 0x0113;
+        public const int WM_LBUTTONDOWN = 0x0201;
+        public const int WM_LBUTTONUP = 0x0202;
+        public const int WM_RBUTTONDOWN = 0x0204;
+        public const int WM_RBUTTONUP = 0x0205;
+        public const int WM_GESTURE_STOP = 0x8001;
+        public const uint LLMHF_INJECTED = 0x00000001;
+        public const uint INPUT_MOUSE = 0;
+        public const uint INPUT_KEYBOARD = 1;
+        public const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        public const uint MOUSEEVENTF_LEFTUP = 0x0004;
+        public const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+        public const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+        public const uint KEYEVENTF_KEYUP = 0x0002;
         public const int MOD_ALT = 1;
         public const int MOD_CONTROL = 2;
         public const int MOD_SHIFT = 4;
@@ -124,6 +142,7 @@ namespace OrbitWheelLite
         [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
         [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
         [DllImport("user32.dll")] public static extern IntPtr SetWindowsHookEx(int idHook, KeyboardProc callback, IntPtr module, uint threadId);
+        [DllImport("user32.dll", EntryPoint = "SetWindowsHookExW")] public static extern IntPtr SetMouseHook(int idHook, MouseProc callback, IntPtr module, uint threadId);
         [DllImport("user32.dll")] public static extern bool UnhookWindowsHookEx(IntPtr hook);
         [DllImport("user32.dll")] public static extern IntPtr CallNextHookEx(IntPtr hook, int code, IntPtr wp, IntPtr lp);
         [DllImport("kernel32.dll", CharSet = CharSet.Auto)] public static extern IntPtr GetModuleHandle(string name);
@@ -156,13 +175,38 @@ namespace OrbitWheelLite
         [DllImport("shell32.dll", EntryPoint = "SHGetFileInfoW", CharSet = CharSet.Unicode)] public static extern IntPtr SHGetFileInfoPidl(IntPtr pidl, uint attributes, ref ShellFileInfo info, uint size, uint flags);
         [DllImport("user32.dll")] public static extern bool DestroyIcon(IntPtr icon);
         [DllImport("ole32.dll")] public static extern void CoTaskMemFree(IntPtr pointer);
+        [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+        [DllImport("user32.dll")] public static extern bool PostThreadMessage(uint threadId, uint message, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll")] public static extern int GetMessage(out NativeMessage message, IntPtr window, uint min, uint max);
+        [DllImport("user32.dll")] public static extern bool TranslateMessage(ref NativeMessage message);
+        [DllImport("user32.dll")] public static extern IntPtr DispatchMessage(ref NativeMessage message);
+        [DllImport("user32.dll")] public static extern bool PeekMessage(out NativeMessage message, IntPtr window, uint min, uint max, uint remove);
+        [DllImport("user32.dll")] public static extern UIntPtr SetTimer(IntPtr window, UIntPtr id, uint interval, IntPtr callback);
+        [DllImport("user32.dll")] public static extern bool KillTimer(IntPtr window, UIntPtr id);
+        [DllImport("user32.dll", SetLastError = true)] public static extern uint SendInput(uint count, Input[] inputs, int size);
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct ShellFileInfo { public IntPtr Icon; public int IconIndex; public uint Attributes; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string DisplayName; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)] public string TypeName; }
         [StructLayout(LayoutKind.Sequential)]
         public struct WindowRect { public int Left; public int Top; public int Right; public int Bottom; }
         [StructLayout(LayoutKind.Sequential)]
         public struct NativePoint { public int X; public int Y; }
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MouseHookData { public NativePoint Point; public uint MouseData; public uint Flags; public uint Time; public UIntPtr ExtraInfo; }
+        [StructLayout(LayoutKind.Sequential)]
+        public struct NativeMessage { public IntPtr Window; public uint Message; public UIntPtr WParam; public IntPtr LParam; public uint Time; public NativePoint Point; }
+        [StructLayout(LayoutKind.Sequential)]
+        public struct Input { public uint Type; public InputUnion Data; }
+        [StructLayout(LayoutKind.Explicit)]
+        public struct InputUnion {
+            [FieldOffset(0)] public MouseInput Mouse;
+            [FieldOffset(0)] public KeyboardInput Keyboard;
+        }
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MouseInput { public int Dx; public int Dy; public uint MouseData; public uint Flags; public uint Time; public UIntPtr ExtraInfo; }
+        [StructLayout(LayoutKind.Sequential)]
+        public struct KeyboardInput { public ushort VirtualKey; public ushort Scan; public uint Flags; public uint Time; public UIntPtr ExtraInfo; }
         public delegate IntPtr KeyboardProc(int code, IntPtr wp, IntPtr lp);
+        public delegate IntPtr MouseProc(int code, IntPtr wp, IntPtr lp);
         public delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr data);
     }
 
@@ -206,6 +250,335 @@ namespace OrbitWheelLite
         public void Dispose() { if (hook != IntPtr.Zero) Native.UnhookWindowsHookEx(hook); }
     }
 
+    class MouseGestureService : IDisposable
+    {
+        private enum MouseButton { None, Left, Right }
+
+        private const int ChordWindow = 110;
+        private const int HorizontalActivation = 120;
+        private const int HorizontalStep = 100;
+        private readonly System.Threading.ManualResetEvent ready = new System.Threading.ManualResetEvent(false);
+        private readonly System.Threading.Thread hookThread;
+        private Native.MouseProc callback;
+        private IntPtr hook;
+        private UIntPtr timer;
+        private uint hookThreadId;
+        private int disposeRequested;
+        private MouseButton pendingButton;
+        private bool pendingForwarded;
+        private bool pendingReleased;
+        private int pendingSince;
+        private Point pendingPoint;
+        private bool leftDown;
+        private bool rightDown;
+        private bool gestureActive;
+        private bool gestureCompleted;
+        private bool gestureActionExecuted;
+        private bool gestureStartLogged;
+        private Point gestureOrigin;
+        private Point gestureEndPoint;
+        private static readonly object traceSync = new object();
+
+        public bool IsRunning { get { return hook != IntPtr.Zero; } }
+
+        public MouseGestureService()
+        {
+            hookThread = new System.Threading.Thread(HookThreadMain) { IsBackground = true, Name = "OrbitWheel.MouseGestures" };
+            hookThread.SetApartmentState(System.Threading.ApartmentState.MTA);
+            hookThread.Start();
+            ready.WaitOne(2000);
+        }
+
+        private void HookThreadMain()
+        {
+            hookThreadId = Native.GetCurrentThreadId();
+            Native.NativeMessage message;
+            Native.PeekMessage(out message, IntPtr.Zero, 0, 0, 0);
+            callback = HookProc;
+            hook = Native.SetMouseHook(Native.WH_MOUSE_LL, callback, Native.GetModuleHandle(null), 0);
+            if (hook != IntPtr.Zero) timer = Native.SetTimer(IntPtr.Zero, UIntPtr.Zero, 8, IntPtr.Zero);
+            ready.Set();
+            if (hook == IntPtr.Zero) return;
+
+            try {
+                while (Native.GetMessage(out message, IntPtr.Zero, 0, 0) > 0) {
+                    if (message.Message == Native.WM_GESTURE_STOP) break;
+                    if (message.Message == Native.WM_TIMER) Tick();
+                    else {
+                        Native.TranslateMessage(ref message);
+                        Native.DispatchMessage(ref message);
+                    }
+                }
+            } finally {
+                FlushBeforeStop();
+                if (timer != UIntPtr.Zero) Native.KillTimer(IntPtr.Zero, timer);
+                IntPtr current = hook;
+                hook = IntPtr.Zero;
+                if (current != IntPtr.Zero) Native.UnhookWindowsHookEx(current);
+            }
+        }
+
+        private IntPtr HookProc(int code, IntPtr wParam, IntPtr lParam)
+        {
+            if (code < 0 || System.Threading.Volatile.Read(ref disposeRequested) != 0)
+                return Native.CallNextHookEx(hook, code, wParam, lParam);
+
+            int message = wParam.ToInt32();
+            if (message != Native.WM_LBUTTONDOWN && message != Native.WM_LBUTTONUP &&
+                message != Native.WM_RBUTTONDOWN && message != Native.WM_RBUTTONUP)
+                return Native.CallNextHookEx(hook, code, wParam, lParam);
+
+            Native.MouseHookData data = (Native.MouseHookData)Marshal.PtrToStructure(lParam, typeof(Native.MouseHookData));
+            if ((data.Flags & Native.LLMHF_INJECTED) != 0)
+                return Native.CallNextHookEx(hook, code, wParam, lParam);
+
+            MouseButton button = (message == Native.WM_LBUTTONDOWN || message == Native.WM_LBUTTONUP) ? MouseButton.Left : MouseButton.Right;
+            bool isDown = message == Native.WM_LBUTTONDOWN || message == Native.WM_RBUTTONDOWN;
+            if (button == MouseButton.Left) leftDown = isDown;
+            else rightDown = isDown;
+
+            if (gestureActive) {
+                if (!isDown) {
+                    gestureEndPoint = new Point(data.Point.X, data.Point.Y);
+                    if (!gestureCompleted) gestureCompleted = true;
+                }
+                return new IntPtr(1);
+            }
+
+            if (isDown) {
+                if (pendingButton == MouseButton.None) {
+                    pendingButton = button;
+                    pendingForwarded = false;
+                    pendingReleased = false;
+                    pendingSince = Environment.TickCount;
+                    pendingPoint = new Point(data.Point.X, data.Point.Y);
+                    return new IntPtr(1);
+                }
+                if (!pendingForwarded && !pendingReleased && pendingButton != button && Elapsed(pendingSince) <= ChordWindow) {
+                    gestureActive = true;
+                    gestureCompleted = false;
+                    gestureActionExecuted = false;
+                    gestureStartLogged = false;
+                    gestureOrigin = pendingPoint;
+                    gestureEndPoint = pendingPoint;
+                    pendingButton = MouseButton.None;
+                    pendingReleased = false;
+                    return new IntPtr(1);
+                }
+                return Native.CallNextHookEx(hook, code, wParam, lParam);
+            }
+
+            if (pendingButton == button && !pendingForwarded) {
+                pendingReleased = true;
+                return new IntPtr(1);
+            }
+            if (pendingButton == button && pendingForwarded) pendingButton = MouseButton.None;
+            return Native.CallNextHookEx(hook, code, wParam, lParam);
+        }
+
+        private void Tick()
+        {
+            if (pendingButton != MouseButton.None && !pendingForwarded) {
+                if (pendingReleased) {
+                    SendMouse(pendingButton, true);
+                    SendMouse(pendingButton, false);
+                    ClearPending();
+                } else if (Elapsed(pendingSince) >= ChordWindow) {
+                    SendMouse(pendingButton, true);
+                    pendingForwarded = true;
+                }
+            }
+
+            if (!gestureActive) return;
+            if (!gestureStartLogged) {
+                Trace("start origin=" + gestureOrigin.X + "," + gestureOrigin.Y);
+                gestureStartLogged = true;
+            }
+            if (gestureCompleted) {
+                // Execute only after both physical buttons are up. Windows can ignore Win+D
+                // while the second mouse button is still held during a chord release.
+                if (leftDown || rightDown) return;
+                if (!gestureActionExecuted) {
+                    CompleteGesture();
+                    gestureActionExecuted = true;
+                }
+                ResetGesture();
+                return;
+            }
+        }
+
+        private void CompleteGesture()
+        {
+            // Both points come from MSLLHOOKSTRUCT, so they remain in the same physical-pixel
+            // coordinate space even when Windows display scaling is above 100%.
+            int dx = gestureEndPoint.X - gestureOrigin.X;
+            int dy = gestureEndPoint.Y - gestureOrigin.Y;
+            int ax = Math.Abs(dx);
+            int ay = Math.Abs(dy);
+
+            // Decide once, after both buttons are released. Vertical deliberately wins over
+            // diagonals; horizontal switching requires a long and clearly horizontal stroke.
+            int verticalThreshold = dy > 0 ? 38 : 48;
+            if (ay >= verticalThreshold && ay >= ax * 0.50f) {
+                Trace("complete dx=" + dx + " dy=" + dy + " action=" + (dy < 0 ? "start" : "desktop"));
+                QueueVerticalShortcut(dy < 0);
+                return;
+            }
+            if (ax >= HorizontalActivation && ax >= ay * 2.0f) {
+                int steps = Math.Min(6, 1 + Math.Max(0, ax - HorizontalActivation) / HorizontalStep);
+                Trace("complete dx=" + dx + " dy=" + dy + " action=" + (dx < 0 ? "switch-left" : "switch-right") + " steps=" + steps);
+                QueueHorizontalShortcut(dx < 0, steps);
+                return;
+            }
+            Trace("complete dx=" + dx + " dy=" + dy + " action=none");
+        }
+
+        private void QueueVerticalShortcut(bool up)
+        {
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+                // Let Windows finish processing both swallowed mouse-button releases first.
+                System.Threading.Thread.Sleep(80);
+                if (System.Threading.Volatile.Read(ref disposeRequested) != 0) return;
+                ReleaseSyntheticModifiers();
+                bool sent = SendShortcut(0x5B, up ? 0 : 0x44);
+                Trace("execute action=" + (up ? "start" : "desktop") + " sendInput=" + sent);
+            });
+        }
+
+        private void QueueHorizontalShortcut(bool reverse, int steps)
+        {
+            System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+                System.Threading.Thread.Sleep(80);
+                if (System.Threading.Volatile.Read(ref disposeRequested) != 0) return;
+                ReleaseSyntheticModifiers();
+                SendWindowSwitch(reverse, steps);
+                Trace("execute action=" + (reverse ? "switch-left" : "switch-right") + " steps=" + steps);
+            });
+        }
+
+        private void ResetGesture()
+        {
+            gestureActive = false;
+            gestureCompleted = false;
+            gestureActionExecuted = false;
+            gestureStartLogged = false;
+        }
+
+        private void FlushBeforeStop()
+        {
+            if (pendingButton != MouseButton.None && !pendingForwarded) {
+                SendMouse(pendingButton, true);
+                if (pendingReleased) SendMouse(pendingButton, false);
+            }
+            ClearPending();
+            ReleaseSyntheticModifiers();
+        }
+
+        private void ClearPending()
+        {
+            pendingButton = MouseButton.None;
+            pendingForwarded = false;
+            pendingReleased = false;
+        }
+
+        private static void SendWindowSwitch(bool reverse, int steps)
+        {
+            SendKey(0x12, true);
+            for (int i = 0; i < steps; i++) {
+                if (reverse) SendKey(0x10, true);
+                SendKey(0x09, true);
+                SendKey(0x09, false);
+                if (reverse) SendKey(0x10, false);
+            }
+            SendKey(0x12, false);
+        }
+
+        private static void ReleaseSyntheticModifiers()
+        {
+            SendKey(0x12, false);
+            SendKey(0x10, false);
+            SendKey(0x5B, false);
+            SendKey(0x5C, false);
+        }
+
+        private static bool SendShortcut(int modifier, int key)
+        {
+            int count = key == 0 ? 2 : 4;
+            Native.Input[] inputs = new Native.Input[count];
+            inputs[0] = KeyboardInput(modifier, false);
+            if (key == 0) {
+                inputs[1] = KeyboardInput(modifier, true);
+            } else {
+                inputs[1] = KeyboardInput(key, false);
+                inputs[2] = KeyboardInput(key, true);
+                inputs[3] = KeyboardInput(modifier, true);
+            }
+            uint sent = Native.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(Native.Input)));
+            if (sent == (uint)inputs.Length) return true;
+
+            // Fallback for systems that reject a batched SendInput request.
+            Native.keybd_event((byte)modifier, 0, 0, UIntPtr.Zero);
+            if (key != 0) Native.keybd_event((byte)key, 0, 0, UIntPtr.Zero);
+            if (key != 0) Native.keybd_event((byte)key, 0, Native.KEYEVENTF_KEYUP, UIntPtr.Zero);
+            Native.keybd_event((byte)modifier, 0, Native.KEYEVENTF_KEYUP, UIntPtr.Zero);
+            return false;
+        }
+
+        private static void Trace(string message)
+        {
+            try {
+                lock (traceSync) {
+                    Directory.CreateDirectory(ConfigStore.Folder);
+                    File.AppendAllText(Path.Combine(ConfigStore.Folder, "gesture.log"), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " " + message + Environment.NewLine);
+                }
+            } catch { }
+        }
+
+        private static Native.Input KeyboardInput(int key, bool keyUp)
+        {
+            Native.Input input = new Native.Input { Type = Native.INPUT_KEYBOARD };
+            input.Data.Keyboard.VirtualKey = (ushort)key;
+            input.Data.Keyboard.Flags = keyUp ? Native.KEYEVENTF_KEYUP : 0u;
+            return input;
+        }
+
+        private static void SendMouse(MouseButton button, bool down)
+        {
+            uint flags = button == MouseButton.Left
+                ? (down ? Native.MOUSEEVENTF_LEFTDOWN : Native.MOUSEEVENTF_LEFTUP)
+                : (down ? Native.MOUSEEVENTF_RIGHTDOWN : Native.MOUSEEVENTF_RIGHTUP);
+            Native.Input input = new Native.Input { Type = Native.INPUT_MOUSE };
+            input.Data.Mouse.Flags = flags;
+            Native.SendInput(1, new Native.Input[] { input }, Marshal.SizeOf(typeof(Native.Input)));
+        }
+
+        private static void SendKey(int key, bool down)
+        {
+            Native.Input input = new Native.Input { Type = Native.INPUT_KEYBOARD };
+            input.Data.Keyboard.VirtualKey = (ushort)key;
+            input.Data.Keyboard.Flags = down ? 0u : Native.KEYEVENTF_KEYUP;
+            Native.SendInput(1, new Native.Input[] { input }, Marshal.SizeOf(typeof(Native.Input)));
+        }
+
+        private static int Elapsed(int start)
+        {
+            return unchecked(Environment.TickCount - start);
+        }
+
+        public void Dispose()
+        {
+            if (System.Threading.Interlocked.Exchange(ref disposeRequested, 1) != 0) return;
+            uint threadId = hookThreadId;
+            if (threadId != 0) Native.PostThreadMessage(threadId, Native.WM_GESTURE_STOP, IntPtr.Zero, IntPtr.Zero);
+            if (!hookThread.Join(1200)) {
+                IntPtr current = hook;
+                hook = IntPtr.Zero;
+                if (current != IntPtr.Zero) Native.UnhookWindowsHookEx(current);
+            }
+            ready.Dispose();
+        }
+    }
+
     static class IconFactory
     {
         public static Icon AppIcon()
@@ -236,6 +609,7 @@ namespace OrbitWheelLite
         private Bitmap backdrop;
         private Timer animationTimer;
         private float animationPhase;
+        private Point liquidFocus;
         private const int Outer = 235;
         private const int Inner = 67;
         public event Action<ActionItem> ExecuteRequested;
@@ -257,17 +631,26 @@ namespace OrbitWheelLite
             if (mouse != Cursor.Position) Cursor.Position = mouse;
             Location = new Point(mouse.X - Width / 2, mouse.Y - Height / 2);
             center = new Point(Width / 2, Height / 2);
-            BackColor = Color.FromArgb(1, 2, 3);
-            TransparencyKey = Color.FromArgb(1, 2, 3);
+            liquidFocus = center;
+            BackColor = Color.Black;
+            SetCircularRegion();
             backdrop = CaptureAndBlur(Location, Size, config.Style);
-            animationTimer = new Timer { Interval = 33 };
-            animationTimer.Tick += delegate { animationPhase += 1.6f; if (animationPhase >= 360) animationPhase -= 360; Invalidate(); };
+            animationTimer = new Timer { Interval = 40 };
+            animationTimer.Tick += delegate { animationPhase += 1.35f; if (animationPhase >= 360) animationPhase -= 360; Invalidate(); };
             animationTimer.Start();
             MouseMove += OnMove;
             MouseDown += OnDown;
             MouseWheel += OnWheel;
             KeyDown += OnKey;
             Deactivate += delegate { if (config.Mode == "Click" && Visible) RequestClose(); };
+        }
+
+        private void SetCircularRegion()
+        {
+            using (GraphicsPath path = new GraphicsPath()) {
+                path.AddEllipse(center.X - Outer - 1, center.Y - Outer - 1, (Outer + 1) * 2, (Outer + 1) * 2);
+                Region = new Region(path);
+            }
         }
 
         private Point ClampCenterToVisibleScreen(Point requested)
@@ -304,19 +687,37 @@ namespace OrbitWheelLite
                 if (visible.Width > 0 && visible.Height > 0)
                     g.CopyFromScreen(visible.Location, new Point(visible.X - location.X, visible.Y - location.Y), visible.Size);
             }
-            int divisor = style == "高斯模糊" ? 18 : style == "亚克力" ? 7 : 11;
-            Bitmap small = new Bitmap(Math.Max(1, size.Width / divisor), Math.Max(1, size.Height / divisor));
+            int divisor = style == "高斯模糊" ? 18 : style == "亚克力" ? 7 : 8;
+            Bitmap small = new Bitmap(Math.Max(1, size.Width / divisor), Math.Max(1, size.Height / divisor), PixelFormat.Format32bppArgb);
             using (Graphics g = Graphics.FromImage(small)) {
                 g.InterpolationMode = InterpolationMode.HighQualityBilinear;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 g.DrawImage(source, new Rectangle(Point.Empty, small.Size));
             }
-            Bitmap result = new Bitmap(size.Width, size.Height);
+            Bitmap result = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppArgb);
             using (Graphics g = Graphics.FromImage(result)) {
                 g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = PixelOffsetMode.HighQuality;
                 g.DrawImage(small, new Rectangle(Point.Empty, result.Size));
-                int materialAlpha = style == "亚克力" ? 188 : style == "液态玻璃" ? 105 : 58;
-                Color tint = style == "亚克力" ? Color.FromArgb(materialAlpha, 23, 29, 43) : style == "液态玻璃" ? Color.FromArgb(materialAlpha, 28, 48, 88) : Color.FromArgb(materialAlpha, 20, 25, 38);
-                using (SolidBrush b = new SolidBrush(tint)) g.FillRectangle(b, 0, 0, result.Width, result.Height);
+                if (style == "液态玻璃") {
+                    using (Bitmap refracted = CreateLiquidRefraction(source))
+                        g.DrawImageUnscaled(refracted, Point.Empty);
+                    using (LinearGradientBrush tint = new LinearGradientBrush(new Rectangle(Point.Empty, result.Size), Color.FromArgb(42, 36, 88, 154), Color.FromArgb(88, 7, 16, 38), 118f))
+                        g.FillRectangle(tint, 0, 0, result.Width, result.Height);
+                    using (GraphicsPath lightPath = new GraphicsPath()) {
+                        lightPath.AddEllipse(32, 18, 390, 300);
+                        using (PathGradientBrush light = new PathGradientBrush(lightPath)) {
+                            light.CenterPoint = new PointF(148, 98);
+                            light.CenterColor = Color.FromArgb(32, 210, 240, 255);
+                            light.SurroundColors = new Color[] { Color.FromArgb(0, 75, 140, 220) };
+                            g.FillPath(light, lightPath);
+                        }
+                    }
+                } else {
+                    int materialAlpha = style == "亚克力" ? 188 : 58;
+                    Color tint = style == "亚克力" ? Color.FromArgb(materialAlpha, 23, 29, 43) : Color.FromArgb(materialAlpha, 20, 25, 38);
+                    using (SolidBrush b = new SolidBrush(tint)) g.FillRectangle(b, 0, 0, result.Width, result.Height);
+                }
                 if (style == "亚克力") {
                     Random random = new Random(8);
                     using (SolidBrush grain = new SolidBrush(Color.FromArgb(11, 255, 255, 255)))
@@ -328,10 +729,66 @@ namespace OrbitWheelLite
             return result;
         }
 
+        private Bitmap CreateLiquidRefraction(Bitmap source)
+        {
+            Bitmap normalized = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb);
+            using (Graphics g = Graphics.FromImage(normalized)) g.DrawImageUnscaled(source, Point.Empty);
+            Bitmap result = new Bitmap(source.Width, source.Height, PixelFormat.Format32bppArgb);
+            Rectangle bounds = new Rectangle(Point.Empty, source.Size);
+            BitmapData sourceData = normalized.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            BitmapData resultData = result.LockBits(bounds, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+            int sourceBytes = Math.Abs(sourceData.Stride) * source.Height;
+            int resultBytes = Math.Abs(resultData.Stride) * result.Height;
+            byte[] input = new byte[sourceBytes];
+            byte[] output = new byte[resultBytes];
+            Marshal.Copy(sourceData.Scan0, input, 0, input.Length);
+
+            double inner = Inner + 12;
+            double outer = Outer - 5;
+            for (int y = 0; y < source.Height; y++) {
+                for (int x = 0; x < source.Width; x++) {
+                    double dx = x - center.X;
+                    double dy = y - center.Y;
+                    double radius = Math.Sqrt(dx * dx + dy * dy);
+                    if (radius < inner || radius > outer) continue;
+                    double outerRim = Math.Max(0, 1.0 - (outer - radius) / 25.0);
+                    double innerRim = Math.Max(0, 1.0 - (radius - inner) / 20.0);
+                    double angle = Math.Atan2(dy, dx);
+                    double wave = Math.Sin(angle * 6.0 + radius * 0.035) * (0.8 + outerRim * 1.8);
+                    double displacement = outerRim * 12.5 - innerRim * 7.5 + wave;
+                    double sampleRadius = radius - displacement;
+                    double ux = dx / radius;
+                    double uy = dy / radius;
+                    double chroma = (outerRim + innerRim) * 1.6;
+                    int blueIndex = PixelIndex(center.X + ux * (sampleRadius - chroma), center.Y + uy * (sampleRadius - chroma), source.Width, source.Height, sourceData.Stride);
+                    int greenIndex = PixelIndex(center.X + ux * sampleRadius, center.Y + uy * sampleRadius, source.Width, source.Height, sourceData.Stride);
+                    int redIndex = PixelIndex(center.X + ux * (sampleRadius + chroma), center.Y + uy * (sampleRadius + chroma), source.Width, source.Height, sourceData.Stride);
+                    int destination = y * resultData.Stride + x * 4;
+                    output[destination] = input[blueIndex];
+                    output[destination + 1] = input[greenIndex + 1];
+                    output[destination + 2] = input[redIndex + 2];
+                    output[destination + 3] = (byte)Math.Min(220, 60 + (outerRim + innerRim) * 120);
+                }
+            }
+
+            Marshal.Copy(output, 0, resultData.Scan0, output.Length);
+            normalized.UnlockBits(sourceData);
+            result.UnlockBits(resultData);
+            normalized.Dispose();
+            return result;
+        }
+
+        private static int PixelIndex(double x, double y, int width, int height, int stride)
+        {
+            int px = Math.Max(0, Math.Min(width - 1, (int)Math.Round(x)));
+            int py = Math.Max(0, Math.Min(height - 1, (int)Math.Round(y)));
+            return py * stride + px * 4;
+        }
+
         protected override void OnPaintBackground(PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            e.Graphics.Clear(Color.FromArgb(1, 2, 3));
+            e.Graphics.Clear(Color.FromArgb(18, 23, 34));
             if (backdrop != null) {
                 GraphicsState state = e.Graphics.Save();
                 using (GraphicsPath clip = new GraphicsPath()) {
@@ -380,6 +837,7 @@ namespace OrbitWheelLite
 
         private void OnMove(object sender, MouseEventArgs e)
         {
+            liquidFocus = e.Location;
             double dx = e.X - center.X, dy = e.Y - center.Y;
             double dist = Math.Sqrt(dx * dx + dy * dy);
             int old = selected;
@@ -428,27 +886,42 @@ namespace OrbitWheelLite
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             bool acrylic = config.Style == "亚克力";
             bool blur = config.Style == "高斯模糊";
+            bool liquid = config.Style == "液态玻璃";
             int fillAlpha = acrylic ? 70 : blur ? 18 : 38;
             Color baseColor = acrylic ? Color.FromArgb(fillAlpha, 35, 42, 58) : blur ? Color.FromArgb(fillAlpha, 28, 33, 48) : Color.FromArgb(fillAlpha, 22, 36, 66);
             Color accent = acrylic ? Color.FromArgb(150, 92, 130, 185) : blur ? Color.FromArgb(90, 160, 200, 245) : Color.FromArgb(125, 87, 190, 255);
 
+            if (liquid) DrawLiquidFoundation(g);
             for (int i = 0; i < 6; i++) {
                 using (GraphicsPath path = SegmentPath(center, Inner + 14, Outer - 3, i * 60 - 28, 56)) {
-                    using (SolidBrush fill = new SolidBrush(i == selected ? accent : baseColor)) g.FillPath(fill, path);
-                    using (Pen border = new Pen(Color.FromArgb(i == selected ? 220 : 46, 220, 240, 255), i == selected ? 2f : 1f)) g.DrawPath(border, path);
+                    if (liquid) DrawLiquidSegment(g, path, i == selected, i);
+                    else {
+                        using (SolidBrush fill = new SolidBrush(i == selected ? accent : baseColor)) g.FillPath(fill, path);
+                        using (Pen border = new Pen(Color.FromArgb(i == selected ? 220 : 46, 220, 240, 255), i == selected ? 2f : 1f)) g.DrawPath(border, path);
+                    }
                 }
-                DrawAction(g, i);
-                DrawSectorNumber(g, i);
             }
 
             DrawRealtimeGlass(g);
 
-            using (Pen cleanEdge = new Pen(Color.FromArgb(245, 112, 164, 224), 4f))
-                g.DrawEllipse(cleanEdge, center.X - Outer + 4, center.Y - Outer + 4, (Outer - 4) * 2, (Outer - 4) * 2);
+            for (int i = 0; i < 6; i++) {
+                DrawAction(g, i);
+                DrawSectorNumber(g, i);
+            }
+
+            if (liquid) DrawLiquidRims(g);
+            else using (Pen cleanEdge = new Pen(Color.FromArgb(245, 112, 164, 224), 4f))
+                    g.DrawEllipse(cleanEdge, center.X - Outer + 4, center.Y - Outer + 4, (Outer - 4) * 2, (Outer - 4) * 2);
 
             Rectangle closeRect = new Rectangle(center.X - Inner, center.Y - Inner, Inner * 2, Inner * 2);
-            using (LinearGradientBrush cb = new LinearGradientBrush(closeRect, Color.FromArgb(220,38,45,65), Color.FromArgb(210,24,30,46), 45)) g.FillEllipse(cb, closeRect);
-            using (Pen ring = new Pen(Color.FromArgb(130, 210, 235, 255), 1.5f)) g.DrawEllipse(ring, closeRect);
+            if (liquid) {
+                using (Pen shadow = new Pen(Color.FromArgb(82, 1, 7, 18), 6f)) g.DrawEllipse(shadow, closeRect);
+                using (LinearGradientBrush cb = new LinearGradientBrush(closeRect, Color.FromArgb(235, 35, 60, 102), Color.FromArgb(238, 8, 17, 39), 125)) g.FillEllipse(cb, closeRect);
+                using (Pen glow = new Pen(Color.FromArgb(70, 88, 198, 255), 5f)) g.DrawArc(glow, closeRect, 205, 145);
+            } else {
+                using (LinearGradientBrush cb = new LinearGradientBrush(closeRect, Color.FromArgb(220,38,45,65), Color.FromArgb(210,24,30,46), 45)) g.FillEllipse(cb, closeRect);
+            }
+            using (Pen ring = new Pen(Color.FromArgb(liquid ? 185 : 130, 210, 235, 255), liquid ? 1.8f : 1.5f)) g.DrawEllipse(ring, closeRect);
             using (Pen x = new Pen(Color.FromArgb(235, 245, 250, 255), 3)) {
                 x.StartCap = x.EndCap = LineCap.Round;
                 g.DrawLine(x, center.X - 12, center.Y - 12, center.X + 12, center.Y + 12);
@@ -461,28 +934,108 @@ namespace OrbitWheelLite
                 g.DrawString(page, f, b, center.X - 12, center.Y + 39);
         }
 
+        private void DrawLiquidFoundation(Graphics g)
+        {
+            Rectangle outer = new Rectangle(center.X - Outer + 7, center.Y - Outer + 7, (Outer - 7) * 2, (Outer - 7) * 2);
+            Rectangle inner = new Rectangle(center.X - Inner - 13, center.Y - Inner - 13, (Inner + 13) * 2, (Inner + 13) * 2);
+            using (Pen depth = new Pen(Color.FromArgb(62, 0, 6, 18), 10f)) g.DrawEllipse(depth, outer);
+            using (Pen innerDepth = new Pen(Color.FromArgb(78, 0, 5, 16), 8f)) g.DrawEllipse(innerDepth, inner);
+            using (LinearGradientBrush wash = new LinearGradientBrush(outer, Color.FromArgb(30, 90, 190, 255), Color.FromArgb(12, 4, 16, 44), 120f))
+            using (Pen depthLight = new Pen(wash, 8f)) g.DrawEllipse(depthLight, outer);
+        }
+
+        private void DrawLiquidSegment(Graphics g, GraphicsPath path, bool isSelected, int index)
+        {
+            RectangleF bounds = path.GetBounds();
+            Color top = isSelected ? Color.FromArgb(126, 65, 185, 255) : Color.FromArgb(38, 155, 218, 255);
+            Color bottom = isSelected ? Color.FromArgb(92, 10, 70, 145) : Color.FromArgb(48, 4, 18, 52);
+            using (LinearGradientBrush fill = new LinearGradientBrush(bounds, top, bottom, 110f + index * 7f)) {
+                ColorBlend blend = new ColorBlend(4) {
+                    Colors = new Color[] { top, Color.FromArgb(isSelected ? 104 : 44, 100, 198, 255), Color.FromArgb(isSelected ? 76 : 32, 20, 65, 120), bottom },
+                    Positions = new float[] { 0f, 0.24f, 0.68f, 1f }
+                };
+                fill.InterpolationColors = blend;
+                g.FillPath(fill, path);
+            }
+            if (isSelected) {
+                using (Pen halo = new Pen(Color.FromArgb(76, 62, 182, 255), 7f)) g.DrawPath(halo, path);
+            }
+            using (Pen darkEdge = new Pen(Color.FromArgb(66, 0, 10, 28), 1.8f)) g.DrawPath(darkEdge, path);
+            using (Pen glassEdge = new Pen(Color.FromArgb(isSelected ? 235 : 92, 214, 242, 255), isSelected ? 2.2f : 1.15f)) g.DrawPath(glassEdge, path);
+        }
+
         private void DrawRealtimeGlass(Graphics g)
         {
             Rectangle ring = new Rectangle(center.X - Outer + 5, center.Y - Outer + 5, (Outer - 5) * 2, (Outer - 5) * 2);
-            using (Pen glow = new Pen(Color.FromArgb(config.Style == "液态玻璃" ? 115 : 55, 185, 225, 255), config.Style == "液态玻璃" ? 7f : 3f)) {
-                glow.StartCap = glow.EndCap = LineCap.Round;
-                g.DrawArc(glow, ring, animationPhase, config.Style == "液态玻璃" ? 64 : 38);
-                g.DrawArc(glow, ring, animationPhase + 180, config.Style == "液态玻璃" ? 42 : 24);
-            }
-            if (config.Style == "液态玻璃") {
-                double a = animationPhase * Math.PI / 180.0;
-                int x = center.X + (int)(Math.Cos(a) * 122);
-                int y = center.Y + (int)(Math.Sin(a) * 122);
-                Rectangle sheen = new Rectangle(x - 55, y - 18, 110, 36);
-                using (GraphicsPath path = new GraphicsPath()) {
-                    path.AddEllipse(sheen);
-                    using (PathGradientBrush b = new PathGradientBrush(path)) {
-                        b.CenterColor = Color.FromArgb(42, 225, 245, 255);
-                        b.SurroundColors = new Color[] { Color.FromArgb(0, 225, 245, 255) };
-                        g.FillPath(b, path);
+            if (config.Style != "液态玻璃") {
+                using (Pen glow = new Pen(Color.FromArgb(55, 185, 225, 255), 3f)) {
+                    glow.StartCap = glow.EndCap = LineCap.Round;
+                    g.DrawArc(glow, ring, animationPhase, 38);
+                    g.DrawArc(glow, ring, animationPhase + 180, 24);
+                }
+            } else {
+                GraphicsState state = g.Save();
+                using (GraphicsPath clip = new GraphicsPath(FillMode.Alternate)) {
+                    clip.AddEllipse(center.X - Outer + 7, center.Y - Outer + 7, (Outer - 7) * 2, (Outer - 7) * 2);
+                    clip.AddEllipse(center.X - Inner - 13, center.Y - Inner - 13, (Inner + 13) * 2, (Inner + 13) * 2);
+                    g.SetClip(clip);
+
+                    Rectangle pointerLens = new Rectangle(liquidFocus.X - 145, liquidFocus.Y - 145, 290, 290);
+                    using (GraphicsPath lensPath = new GraphicsPath()) {
+                        lensPath.AddEllipse(pointerLens);
+                        using (PathGradientBrush lens = new PathGradientBrush(lensPath)) {
+                            lens.CenterColor = Color.FromArgb(58, 224, 247, 255);
+                            lens.SurroundColors = new Color[] { Color.FromArgb(0, 28, 112, 220) };
+                            g.FillPath(lens, lensPath);
+                        }
+                    }
+
+                    double a = animationPhase * Math.PI / 180.0;
+                    DrawRotatedCaustic(g, center.X + (int)(Math.Cos(a) * 126), center.Y + (int)(Math.Sin(a) * 126), 168, 46, animationPhase + 28, 62);
+                    DrawRotatedCaustic(g, center.X + (int)(Math.Cos(a * -0.72 + 2.25) * 172), center.Y + (int)(Math.Sin(a * -0.72 + 2.25) * 172), 112, 30, -animationPhase + 82, 40);
+                    DrawRotatedCaustic(g, center.X + (int)(Math.Cos(a * 0.45 + 4.4) * 104), center.Y + (int)(Math.Sin(a * 0.45 + 4.4) * 104), 92, 22, animationPhase * 0.4f, 28);
+                    using (Pen refraction = new Pen(Color.FromArgb(42, 184, 231, 255), 11f)) {
+                        refraction.StartCap = refraction.EndCap = LineCap.Round;
+                        g.DrawArc(refraction, ring, animationPhase + 78, 92);
                     }
                 }
+                g.Restore(state);
+
+                using (Pen movingGlow = new Pen(Color.FromArgb(82, 207, 241, 255), 9f)) {
+                    movingGlow.StartCap = movingGlow.EndCap = LineCap.Round;
+                    g.DrawArc(movingGlow, ring, animationPhase + 196, 48);
+                }
             }
+        }
+
+        private static void DrawRotatedCaustic(Graphics g, int x, int y, int width, int height, float angle, int alpha)
+        {
+            GraphicsState state = g.Save();
+            g.TranslateTransform(x, y);
+            g.RotateTransform(angle);
+            Rectangle sheen = new Rectangle(-width / 2, -height / 2, width, height);
+            using (GraphicsPath path = new GraphicsPath()) {
+                path.AddEllipse(sheen);
+                using (PathGradientBrush brush = new PathGradientBrush(path)) {
+                    brush.CenterColor = Color.FromArgb(alpha, 232, 249, 255);
+                    brush.SurroundColors = new Color[] { Color.FromArgb(0, 120, 205, 255) };
+                    g.FillPath(brush, path);
+                }
+            }
+            g.Restore(state);
+        }
+
+        private void DrawLiquidRims(Graphics g)
+        {
+            Rectangle outer = new Rectangle(center.X - Outer + 4, center.Y - Outer + 4, (Outer - 4) * 2, (Outer - 4) * 2);
+            Rectangle inner = new Rectangle(center.X - Inner - 13, center.Y - Inner - 13, (Inner + 13) * 2, (Inner + 13) * 2);
+            using (Pen shadow = new Pen(Color.FromArgb(88, 0, 5, 16), 4f)) g.DrawEllipse(shadow, outer);
+            using (LinearGradientBrush rimBrush = new LinearGradientBrush(outer, Color.FromArgb(245, 225, 248, 255), Color.FromArgb(225, 48, 135, 225), 132f))
+            using (Pen rim = new Pen(rimBrush, 3.4f)) g.DrawEllipse(rim, outer);
+            using (Pen rimLight = new Pen(Color.FromArgb(155, 232, 250, 255), 1f)) g.DrawArc(rimLight, outer, 198, 144);
+            using (Pen innerShadow = new Pen(Color.FromArgb(96, 0, 6, 20), 4f)) g.DrawEllipse(innerShadow, inner);
+            using (Pen innerRim = new Pen(Color.FromArgb(170, 147, 220, 255), 2.1f)) g.DrawEllipse(innerRim, inner);
+            using (Pen innerLight = new Pen(Color.FromArgb(150, 238, 250, 255), 1.2f)) g.DrawArc(innerLight, inner, 205, 128);
         }
 
         private GraphicsPath SegmentPath(Point c, int inner, int outer, float start, float sweep)
@@ -1360,6 +1913,7 @@ namespace OrbitWheelLite
         private int recordedModifiers;
         private int recordedKey;
         private CheckBox startup;
+        private CheckBox mouseGestures;
         private Label effectDescription;
         private Panel contentHost;
         private readonly List<Button> navigation = new List<Button>();
@@ -1499,9 +2053,12 @@ namespace OrbitWheelLite
             sections.Add(hotkeySection);
 
             Panel advanced = Section();
-            GlassPanel advancedCard = Card("高级", 0, 0, 858, 190);
-            advancedCard.Controls.Add(L("圆环中心始终以打开瞬间的鼠标位置为准。", 28, 62, 700, 26, 10, false));
-            Label advancedHint = L("点击模式下再次按快捷键不会重复打开圆环；按 Esc 可关闭。", 28, 103, 720, 28, 9, false); advancedHint.ForeColor = Color.FromArgb(145,174,210); advancedCard.Controls.Add(advancedHint);
+            GlassPanel advancedCard = Card("鼠标手势", 0, 0, 858, 248);
+            mouseGestures = new CheckBox { Left = 28, Top = 58, Width = 360, Height = 30, Text = "启用左右键组合手势", ForeColor = Color.White, BackColor = Color.Transparent, Font = new Font("Microsoft YaHei UI", 10.5f) };
+            advancedCard.Controls.Add(mouseGestures);
+            Label gestureHint = L("同时按下鼠标左右键并移动，全部松开后执行：上滑开始菜单，下滑桌面，左右滑切换窗口。", 28, 96, 790, 28, 9, false); gestureHint.ForeColor = Color.FromArgb(145,174,210); advancedCard.Controls.Add(gestureHint);
+            Label safetyHint = L("组合手势期间会屏蔽原点击；普通单击仅在 110 毫秒识别窗口内短暂延后。", 28, 130, 770, 28, 9, false); safetyHint.ForeColor = Color.FromArgb(145,174,210); advancedCard.Controls.Add(safetyHint);
+            Label advancedHint = L("圆环中心取打开瞬间的鼠标位置；点击模式下重复快捷键无效，按 Esc 关闭。", 28, 176, 770, 28, 9, false); advancedHint.ForeColor = Color.FromArgb(145,174,210); advancedCard.Controls.Add(advancedHint);
             advanced.Controls.Add(advancedCard);
             sections.Add(advanced);
 
@@ -1519,6 +2076,7 @@ namespace OrbitWheelLite
             mode.SelectedIndexChanged += delegate { AutoSave(); };
             style.SelectedIndexChanged += delegate { AutoSave(); };
             startup.CheckedChanged += delegate { AutoSave(); };
+            mouseGestures.CheckedChanged += delegate { AutoSave(); };
 
             recordedModifiers = config.Modifiers;
             recordedKey = config.KeyCode;
@@ -1527,6 +2085,7 @@ namespace OrbitWheelLite
             style.SelectedItem = config.Style;
             UpdateEffectDescription();
             startup.Checked = config.StartWithWindows;
+            mouseGestures.Checked = config.MouseGestures;
             ShowSection(0);
         }
 
@@ -1578,7 +2137,7 @@ namespace OrbitWheelLite
         {
             if (effectDescription == null || style == null) return;
             string value = Convert.ToString(style.SelectedItem);
-            effectDescription.Text = value == "高斯模糊" ? "强背景虚化，颜色保持自然" : value == "亚克力" ? "高遮罩、磨砂颗粒、低透视" : "蓝色折射、动态高光、通透";
+            effectDescription.Text = value == "高斯模糊" ? "强背景虚化，颜色保持自然" : value == "亚克力" ? "高遮罩、磨砂颗粒、低透视" : "圆形局部背景模糊、实时焦散与折射高光";
         }
 
         private void CommitPage()
@@ -1658,6 +2217,7 @@ namespace OrbitWheelLite
             config.Mode = mode.SelectedIndex == 1 ? "Hold" : "Click";
             config.Style = Convert.ToString(style.SelectedItem);
             config.StartWithWindows = startup.Checked;
+            config.MouseGestures = mouseGestures.Checked;
             Startup.Set(config.StartWithWindows);
             ConfigStore.Save(config);
             if (ConfigSaved != null) ConfigSaved(this, EventArgs.Empty);
@@ -1755,6 +2315,7 @@ namespace OrbitWheelLite
         private NotifyIcon tray;
         private HotkeyWindow hotkey;
         private KeyboardWatcher watcher;
+        private MouseGestureService mouseGestures;
         private WheelForm wheel;
         private SettingsForm settings;
 
@@ -1775,12 +2336,31 @@ namespace OrbitWheelLite
                 ShowWheel();
             };
             ApplyHotkey();
+            ApplyMouseGestures();
         }
 
         private void ApplyHotkey()
         {
             if (!hotkey.Set(config.Modifiers, config.KeyCode))
                 tray.ShowBalloonTip(3000, "OrbitWheel", "快捷键已被其他程序占用，请在设置中更换。", ToolTipIcon.Warning);
+        }
+
+        private void ApplyMouseGestures()
+        {
+            if (!config.MouseGestures) {
+                if (mouseGestures != null) { mouseGestures.Dispose(); mouseGestures = null; }
+                return;
+            }
+            if (mouseGestures != null && mouseGestures.IsRunning) return;
+            if (mouseGestures != null) mouseGestures.Dispose();
+            mouseGestures = new MouseGestureService();
+            if (!mouseGestures.IsRunning) {
+                mouseGestures.Dispose();
+                mouseGestures = null;
+                config.MouseGestures = false;
+                ConfigStore.Save(config);
+                tray.ShowBalloonTip(3000, "OrbitWheel", "鼠标手势启动失败，已自动关闭。", ToolTipIcon.Warning);
+            }
         }
 
         private void ShowWheel()
@@ -1805,7 +2385,7 @@ namespace OrbitWheelLite
             try {
                 if (settings != null && !settings.IsDisposed) { settings.Show(); settings.Activate(); settings.BringToFront(); return; }
                 settings = new SettingsForm(config);
-                settings.ConfigSaved += delegate { ApplyHotkey(); };
+                settings.ConfigSaved += delegate { ApplyHotkey(); ApplyMouseGestures(); };
                 settings.FormClosed += delegate { settings = null; };
                 settings.Show();
                 settings.Activate();
@@ -1834,6 +2414,7 @@ namespace OrbitWheelLite
         private void Exit()
         {
             tray.Visible = false;
+            if (mouseGestures != null) { mouseGestures.Dispose(); mouseGestures = null; }
             hotkey.Dispose();
             if (watcher != null) watcher.Dispose();
             Application.Exit();
