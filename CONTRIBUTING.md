@@ -85,6 +85,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-action-re
 
 ## Release workflow
 
+`1.3` 设置窗口回归也在 CI 和 Release 构建 job 中运行，本地入口为：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-settings-usability.ps1
+```
+
+该脚本实例化真实设置窗口，在屏幕外验证六个页面的边界、滚动可达性、原生滚轮、100% / 150% / 200% 控件缩放、编辑、切页、增删页面、快捷键录制、自动保存与独立进程重读。配置写入独立目录；不开启生产托盘、全局快捷键、系统动作，也不切换启动项。控件缩放与字体调整不等于更改 Windows 显示缩放；人工验收状态和截图范围见 `docs/acceptance-1.3.md`。
+
 `.github/workflows/release.yml` 仅在原仓库 `V0idream/OrbitWheel` 推送 `v*` Tag 时运行。流程为：
 
 1. 确认 Tag 指向的提交已经合入 `OrbitWheel`；
