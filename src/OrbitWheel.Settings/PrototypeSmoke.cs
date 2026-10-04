@@ -42,6 +42,8 @@ public sealed partial class MainWindow
             await Wait(() => Peer().Pages.Count == 1, "remove page");
             await Task.Delay(120);
             ((TextBox)Find("page-name")).Text = "WinUI 同步测试";
+            if (((ComboBox)Find("pages")).SelectedItem?.ToString() != "WinUI 同步测试") throw new Exception("Page summary is stale");
+            if (((Button)Find("delete-page")).IsEnabled) throw new Exception("Last page deletion enabled");
             ((Expander)Find("slot-5")).IsExpanded = true;
             await Task.Delay(120);
             ((TextBox)Find("slot-5-target")).Text = "echo slot-5-smoke";
@@ -50,6 +52,27 @@ public sealed partial class MainWindow
             for (int index = 0; index < 5; index++)
                 if (Peer().Pages[0].Actions[index].Target != "echo slot-" + index) throw new Exception("Unexpected sector reorder");
             steps.Add("WinUI control events saved mode/name/sector; real WinForms peer loaded them");
+            var previous = System.Text.Json.JsonSerializer.Serialize(_config.Pages[0].Actions[0]);
+            var types = (ComboBox)Find("slot-0-type");
+            types.SelectedIndex = Array.IndexOf(ActionNames.AllChinese().Cast<string>().ToArray(), ActionNames.Chinese("App"));
+            await Wait(() => _applicationDialog != null, "application picker opens");
+            await Task.Delay(300);
+            if (_applicationDialog.IsPrimaryButtonEnabled) throw new Exception("Application picker accepts no selection");
+            _applicationDialog.Hide();
+            await Wait(() => !_choosing, "cancel picker");
+            if (System.Text.Json.JsonSerializer.Serialize(_config.Pages[0].Actions[0]) != previous) throw new Exception("Cancel changed action");
+            steps.Add("page summary updated, last-page delete disabled, application dialog cancellation preserved action");
+            ((Expander)Find("slot-5")).IsExpanded = true;
+            PageScroll.ChangeView(null, PageScroll.ScrollableHeight, null, true); await Task.Delay(120);
+            Navigation.SelectedItem = Navigation.MenuItems[3];
+            string hotkeyBefore = _revision + HotkeyText();
+            _hotkey.Focus(FocusState.Programmatic);
+            await Task.Delay(100);
+            if (_recording || _revision + HotkeyText() != hotkeyBefore) throw new Exception("Focus started recording or rebound key");
+            if (Environment.GetEnvironmentVariable("ORBITWHEEL_DESKTOP_SMOKE") == "1") await DesktopKeyboardSmoke(steps);
+            Navigation.SelectedItem = Navigation.MenuItems[1]; await Task.Delay(180);
+            if (!((Expander)Find("slot-5")).IsExpanded) throw new Exception("Expanded editor lost on navigation");
+            steps.Add("focusing hotkey display leaves binding unchanged; expanded editor retained across navigation");
             File.WriteAllText(Path.Combine(ConfigStore.Folder, "peer-command.txt"), "external");
             await Wait(() => _config.Pages[0].Name == "主程序同步回设置", "WinForms -> WinUI");
             steps.Add("WinForms atomic save propagated back to the visible WinUI editor");
@@ -59,6 +82,14 @@ public sealed partial class MainWindow
             await Wait(() => ConfigStore.TryLoad(out var current, out _) && current.Pages[0].Name == "外部优先", "conflict setup");
             if (SavePending() || !_dirty || !_conflict) throw new Exception("Stale UI overwrote a newer revision");
             if (!ConfigStore.TryLoad(out var remote, out _) || remote.Pages[0].Name != "外部优先") throw new Exception("Conflict changed the disk config");
+            Navigation.SelectedItem = Navigation.MenuItems[5];
+            if (_section != 5 || !_dirty) throw new Exception("Conflict traps navigation or loses edit");
+            Navigation.SelectedItem = Navigation.MenuItems[1];
+            SendMessage(WinRT.Interop.WindowNative.GetWindowHandle(this), 0x10, IntPtr.Zero, IntPtr.Zero);
+            await Wait(() => _recoveryDialog != null, "native close recovery");
+            _recoveryDialog.Hide(); await Wait(() => !_closeDialog, "cancel close");
+            if (_closing || !_dirty) throw new Exception("Cancel close lost pending edit");
+            steps.Add("native WM_CLOSE offered safe recovery; cancelling retained edits; conflict permits navigation");
             // Models the user explicitly choosing to discard after confirmation;
             // the human-facing confirmation dialog is not counted as exercised.
             if (!ReloadFromDisk()) throw new Exception("Conflict reload failed");
@@ -66,12 +97,21 @@ public sealed partial class MainWindow
             string valid = File.ReadAllText(ConfigStore.FilePath);
             File.WriteAllText(ConfigStore.FilePath, "{invalid");
             await Task.Delay(700);
+            if (!_readFault || !Status.IsOpen) throw new Exception("Read fault not shown");
+            File.WriteAllText(ConfigStore.FilePath, valid); Poll();
+            if (_readFault || Status.IsOpen) throw new Exception("Same revision recovery retained read warning");
+            File.WriteAllText(ConfigStore.FilePath, "{invalid"); await Task.Delay(700);
             if (_config.Pages[0].Name != "外部优先" || File.ReadAllText(ConfigStore.FilePath) != "{invalid")
                 throw new Exception("Malformed configuration was overwritten or applied");
             ((TextBox)Find("page-name")).Text = "不能覆盖损坏文件"; _save.Stop();
             if (SavePending()) throw new Exception("Malformed configuration accepted an overwrite");
             File.WriteAllText(ConfigStore.FilePath, valid); ReloadFromDisk();
             steps.Add("malformed file retained and last valid state preserved in both processes");
+            ((TextBox)Find("page-name")).Text = ""; _save.Stop();
+            if (SavePending()) throw new Exception("Empty page name saved");
+            if (ConfigStore.Load().Pages[0].Name != "外部优先") throw new Exception("Invalid input overwrote valid state");
+            ReloadFromDisk();
+            steps.Add("same-revision read recovery clears warning; invalid input leaves last valid disk config untouched");
             Navigation.SelectedItem = Navigation.MenuItems[0];
             ((FrameworkElement)Content).RequestedTheme = ElementTheme.Dark;
             await Snapshot("dark");
@@ -82,6 +122,17 @@ public sealed partial class MainWindow
             await CheckScrollReachability("narrow window");
             await Snapshot("narrow-bottom");
             steps.Add("native light/dark resources and narrow window rendered; page bottoms reached through native scrolling");
+            if (RuntimeState.Read("runtime") is { Passive: false }) {
+                await Wait(() => RuntimeState.Read("runtime")?.Revision == _revision, "live runtime applied revision");
+                if (RuntimeState.Read("runtime")?.Hotkey != "已生效") throw new Exception("Live hotkey application not confirmed");
+                File.WriteAllText(Path.Combine(ConfigStore.Folder, "stop-peer"), "");
+                await Wait(() => RuntimeState.Read("runtime") == null, "live host exited");
+                Poll();
+                if (!_runtimeLines["startup-result"].Text.Contains("主程序未运行")) throw new Exception("Exited host still reported online");
+                ((ComboBox)Find("mode")).SelectedIndex = 1;
+                if (!SavePending() || ConfigStore.Load().Mode != "Hold") throw new Exception("Offline editor failed to save after host exit");
+                steps.Add("live revision and hotkey application confirmed; host exit shown offline; settings remained editable and saved");
+            }
             File.WriteAllText(Path.Combine(ConfigStore.Folder, "ui-result.json"), JsonSerializer.Serialize(new {
                 success = true, process = Environment.ProcessId, window = WinRT.Interop.WindowNative.GetWindowHandle(this).ToInt64(), steps
             }));
@@ -90,9 +141,13 @@ public sealed partial class MainWindow
                 success = false, error = error.ToString(), steps
             }));
         } finally {
+            if (Environment.GetEnvironmentVariable("ORBITWHEEL_DESKTOP_SMOKE") == "1") await EndDesktopSmoke();
             _dirty = false; _conflict = false; _choosing = false; Close();
         }
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr handle, uint message, IntPtr wp, IntPtr lp);
 
     private AppConfig Peer()
     {
@@ -142,6 +197,7 @@ public sealed partial class MainWindow
     private async Task Snapshot(string name)
     {
         await Task.Delay(160);
+        if (Environment.GetEnvironmentVariable("ORBITWHEEL_DESKTOP_SMOKE") == "1") await DesktopSnapshot(name);
         var bitmap = new RenderTargetBitmap();
         await bitmap.RenderAsync((FrameworkElement)Content);
         var buffer = await bitmap.GetPixelsAsync();

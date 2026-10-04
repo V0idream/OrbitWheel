@@ -1,4 +1,4 @@
-# OrbitWheel 2.0 WinUI 原型与部署
+# OrbitWheel 2.1 WinUI 候选与部署
 
 ## 两个进程
 
@@ -10,7 +10,7 @@
 
 继续使用 `%APPDATA%/OrbitWheel/config.json`，保留原字段、动作类型和六个扇区顺序。两种运行时编译相同的 `shared/Models.cs`、`ConfigStore.cs` 和动作名称映射；.NET Framework 使用原序列化器，WinUI 使用 System.Text.Json。
 
-读写通过按配置路径命名的跨进程互斥锁协调，保存先写临时文件并落盘，再替换目标文件。UI 保存还核对加载时的文件哈希：另一处已保存时拒绝覆盖，保留窗口中的编辑并提示用户重新加载。坏 JSON 或暂时读取失败不会被替换成默认配置。读不到有效配置时，运行中的主程序保留最后有效状态。
+写入通过按配置路径命名的跨进程互斥锁协调，先写临时文件并落盘，再原子替换目标文件。读取完整快照不等待写锁；文件替换期间短暂 I/O 失败最多重试 9 次，每次间隔 10 毫秒，解析失败立即报告。UI 保存还核对加载时的文件哈希：另一处已保存时拒绝覆盖，保留窗口中的编辑，支持复制、重试、重新加载和确认放弃关闭。坏 JSON 或暂时读取失败不会被替换成默认配置。读不到有效配置时，运行中的主程序保留最后有效状态。
 
 WinUI 输入变化后延迟 500 毫秒保存，切换页面和关闭窗口前提交。主程序每 300 毫秒检查更新，WinUI 每 500 毫秒检查外部修改。主程序检测到新配置会关闭已有轮盘，避免继续执行旧扇区缓存，再应用配置变化。配置中的命令不会因为同步而执行。
 
@@ -20,8 +20,8 @@ WinUI 输入变化后延迟 500 毫秒保存，切换页面和关闭窗口前提
 
 | 包 | 随包携带 | 外部要求 |
 | --- | --- | --- |
-| `OrbitWheel-2.0-self-contained.zip` | .NET 与 Windows App SDK 运行时 | Windows 10 2004 起、.NET Framework、Visual C++ x64 运行库；Mica 由系统支持情况决定 |
-| `OrbitWheel-2.0-framework-dependent.zip` | 设置应用及托管依赖 | 另需 .NET 10 x64 Runtime 和 Windows App Runtime 1.8 的匹配版本 |
+| `OrbitWheel-2.1-self-contained.zip` | .NET 与 Windows App SDK 运行时 | Windows 10 2004 起、.NET Framework、Visual C++ x64 运行库；Mica 由系统支持情况决定 |
+| `OrbitWheel-2.1-framework-dependent.zip` | 设置应用及托管依赖 | 另需 .NET 10 x64 Runtime 和 Windows App Runtime 1.8 的匹配版本 |
 
 不要只复制根目录 EXE 或 Settings 中一个 EXE。保留整个目录；自包含表示 .NET/Windows App SDK 随包携带，不代表绕过操作系统或 Visual C++ 前置依赖。共享运行时版的 ZIP 小一些，但首次安装运行时的下载量和系统占用并未消失。
 

@@ -10,15 +10,20 @@
         <NavigationViewItem Content="页面与动作" Tag="1" Icon="Edit" />
         <NavigationViewItem Content="外观效果" Tag="2" Icon="Pictures" />
         <NavigationViewItem Content="快捷键" Tag="3" Icon="Keyboard" />
-        <NavigationViewItem Content="高级" Tag="4" Icon="Setting" />
+        <NavigationViewItem Content="鼠标手势" Tag="4" Icon="Setting" />
         <NavigationViewItem Content="关于" Tag="5" Icon="Help" />
       </NavigationView.MenuItems>
       <Grid Margin="24,8,24,24" RowSpacing="12">
-        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-        <InfoBar x:Name="Status" IsOpen="True" IsClosable="False" Severity="Informational" Title="自动保存">
-          <InfoBar.ActionButton><Button x:Name="Reload" Content="重新加载" Click="ReloadClick" Visibility="Collapsed" /></InfoBar.ActionButton>
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <TextBlock x:Name="SaveStatus" Text="设置自动保存" TextWrapping="Wrap" />
+        <InfoBar x:Name="Status" Grid.Row="1" IsOpen="False" IsClosable="False" Severity="Informational" Title="自动保存">
+          <StackPanel Spacing="8">
+            <Button Content="重试保存" Click="RetryClick" />
+            <Button Content="复制未保存内容" Click="CopyPendingClick" />
+            <Button x:Name="Reload" Content="重新加载" Click="ReloadClick" Visibility="Collapsed" />
+          </StackPanel>
         </InfoBar>
-        <ScrollViewer x:Name="PageScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+        <ScrollViewer x:Name="PageScroll" Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
           <StackPanel x:Name="PageContent" Spacing="20" MaxWidth="900" HorizontalAlignment="Stretch" />
         </ScrollViewer>
       </Grid>

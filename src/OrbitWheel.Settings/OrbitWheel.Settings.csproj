@@ -10,12 +10,13 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained><SelfContained>true</SelfContained>
     <ImplicitUsings>enable</ImplicitUsings><Nullable>disable</Nullable>
     <PublishTrimmed>false</PublishTrimmed><DebugType>none</DebugType>
-    <Version>2.0</Version><AssemblyVersion>2.0.0.0</AssemblyVersion><FileVersion>2.0.0.0</FileVersion>
+    <Version>2.1</Version><AssemblyVersion>2.1.0.0</AssemblyVersion><FileVersion>2.1.0.0</FileVersion>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260804001" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <Compile Include="../../shared/RuntimeState.cs" Link="Shared/RuntimeState.cs" />
     <Compile Include="../../shared/Models.cs" Link="Shared/Models.cs" />
     <Compile Include="../../shared/ActionNames.cs" Link="Shared/ActionNames.cs" />
     <Compile Include="../../shared/ConfigStore.cs" Link="Shared/ConfigStore.cs" />

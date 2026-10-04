@@ -16,7 +16,7 @@ $wpf = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\WPF"
     /reference:"$wpf\UIAutomationTypes.dll" `
     /reference:"$wpf\WindowsBase.dll" `
     /resource:"$root\assets\system-icons-sheet.png",OrbitWheel.SystemIcons `
-    "$root\OrbitWheelLite.cs" "$root\shared\Models.cs" "$root\shared\ActionNames.cs" "$root\shared\ConfigStore.cs"
+    "$root\OrbitWheelLite.cs" "$root\shared\Models.cs" "$root\shared\ActionNames.cs" "$root\shared\ConfigStore.cs" "$root\shared\RuntimeState.cs"
 
 if ($LASTEXITCODE -ne 0) { throw "Build failed: $LASTEXITCODE" }
 

@@ -8,6 +8,7 @@ namespace OrbitWheelLite
     {
         public string Name { get; set; }
         public string Target { get; set; }
+        public string DisplayLabel { get { return Name + " — " + Target; } }
         public override string ToString() { return Name; }
     }
 
@@ -32,10 +33,23 @@ namespace OrbitWheelLite
             return path;
         }
 
+        public static System.Threading.Tasks.Task<List<ApplicationChoice>> LoadAsync()
+        {
+            var completion = new System.Threading.Tasks.TaskCompletionSource<List<ApplicationChoice>>();
+            var thread = new System.Threading.Thread(delegate() {
+                try { completion.SetResult(LoadCore()); } catch (Exception error) { completion.SetException(error); }
+            });
+            thread.IsBackground = true; thread.SetApartmentState(System.Threading.ApartmentState.STA); thread.Start();
+            return completion.Task;
+        }
         public static List<ApplicationChoice> Load()
         {
+            try { return LoadCore(); } catch { return new List<ApplicationChoice>(); }
+        }
+        private static List<ApplicationChoice> LoadCore()
+        {
             List<ApplicationChoice> result = new List<ApplicationChoice>();
-            try {
+            {
                 Type shellType = Type.GetTypeFromProgID("Shell.Application");
                 object shell = Activator.CreateInstance(shellType);
                 object folder = shellType.InvokeMember("NameSpace", BindingFlags.InvokeMethod, null, shell, new object[] { "shell:AppsFolder" });
@@ -49,7 +63,7 @@ namespace OrbitWheelLite
                     if (!String.IsNullOrWhiteSpace(name) && !String.IsNullOrWhiteSpace(path))
                         result.Add(new ApplicationChoice { Name = name, Target = File.Exists(path) ? path : path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase) ? path : "shell:AppsFolder\\" + path });
                 }
-            } catch { }
+            }
             result.Sort(delegate(ApplicationChoice a, ApplicationChoice b) { return String.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase); });
             return result;
         }

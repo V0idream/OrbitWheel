@@ -14,7 +14,7 @@ $runLog = Join-Path $testPath 'settings-run.log'
     /reference:"$wpfPath\UIAutomationClient.dll" `
     /reference:"$wpfPath\UIAutomationTypes.dll" /reference:"$wpfPath\WindowsBase.dll" `
     /resource:"$repoRoot\assets\system-icons-sheet.png",OrbitWheel.SystemIcons `
-    "$repoRoot\OrbitWheelLite.cs" "$repoRoot\shared\Models.cs" "$repoRoot\shared\ActionNames.cs" "$repoRoot\shared\ConfigStore.cs" "$repoRoot\shared\ApplicationCatalog.cs" "$repoRoot\legacy\WinFormsSettings.cs" "$repoRoot\tests\SettingsUsabilityTests.cs" *> $buildLog
+    "$repoRoot\OrbitWheelLite.cs" "$repoRoot\shared\Models.cs" "$repoRoot\shared\ActionNames.cs" "$repoRoot\shared\ConfigStore.cs" "$repoRoot\shared\RuntimeState.cs" "$repoRoot\shared\ApplicationCatalog.cs" "$repoRoot\legacy\WinFormsSettings.cs" "$repoRoot\tests\SettingsUsabilityTests.cs" *> $buildLog
 $buildExit = $LASTEXITCODE
 Get-Content -LiteralPath $buildLog -TotalCount 60
 if ($buildExit -ne 0) { throw "Settings regression harness build failed: $buildExit" }

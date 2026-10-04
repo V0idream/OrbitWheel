@@ -31,15 +31,14 @@ namespace OrbitWheelLite
 
         public static bool TryLoad(out AppConfig config, out string revision)
         {
-            config = null; revision = "";
-            string identity = Hash(Encoding.UTF8.GetBytes(Path.GetFullPath(FilePath).ToUpperInvariant()));
-            using (Mutex mutex = new Mutex(false, "Local\\OrbitWheel.Config." + identity)) {
-                bool owned = false;
-                try {
-                    try { owned = mutex.WaitOne(250); } catch (AbandonedMutexException) { owned = true; }
-                    if (!owned) { LastReadError = new IOException("配置正由另一个进程保存。"); return false; }
-                    return ReadSnapshot(out config, out revision);
-                } finally { if (owned) mutex.ReleaseMutex(); }
+            // Writers replace the file atomically. An open handle pins either the
+            // old or new complete file, so readers need no writer mutex/timeout.
+            for (int attempt = 0; ; attempt++) {
+                if (ReadSnapshot(out config, out revision)) return true;
+                // Windows may briefly reject a new open while ReplaceFile is
+                // completing. Retry only I/O failures, never malformed JSON.
+                if (!(LastReadError is IOException) || attempt == 9) return false;
+                Thread.Sleep(10);
             }
         }
 

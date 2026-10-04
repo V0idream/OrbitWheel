@@ -12,7 +12,13 @@ public partial class App : Application
     private string _pidFile;
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr window, int command);
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
-    public App() => InitializeComponent();
+    public App()
+    {
+        InitializeComponent();
+        UnhandledException += (_, args) => {
+            try { File.WriteAllText(Path.Combine(ConfigStore.Folder, "settings-crash.log"), args.Exception.ToString()); } catch { }
+        };
+    }
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         string key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Path.GetFullPath(ConfigStore.FilePath).ToUpperInvariant())));

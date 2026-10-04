@@ -56,7 +56,7 @@
 
 ## ✨ 主要功能
 
-* 六等分径向菜单，扇区从右上开始顺时针编号 `1–6`。
+* 六等分径向菜单，扇区从右侧开始顺时针编号 `1–6`。
 * 支持按住快捷键并松开执行，也支持数字键直接执行对应扇区。
 * 鼠标滚轮或左右方向键切换页面，支持无限页面。
 * 支持启动桌面程序、Store / UWP 应用和普通程序文件。
@@ -81,7 +81,7 @@
 
 ## 🚀 使用方法
 
-1. 下载 `OrbitWheel-2.0-self-contained.zip`。
+1. 下载 `OrbitWheel-2.1-self-contained.zip`。
 2. 解压后运行 `OrbitWheel.exe`。
 3. 双击托盘图标打开设置。
 4. 录制快捷键，配置每个扇区的动作。
@@ -98,7 +98,7 @@
 
 主程序：Windows PowerShell 5.1 和 .NET Framework 4.x。设置程序：.NET SDK 10.0.400 与 Windows App SDK（NuGet 自动还原）。
 
-WinUI 设置是独立进程，必须保留发布包中的 `Settings` 目录。另提供 `OrbitWheel-2.0-framework-dependent.zip` 共享运行时候选包；部署依赖及最终发行方式见 [部署说明](docs/winui-deployment.md)。
+WinUI 设置是独立进程，必须保留发布包中的 `Settings` 目录。另提供 `OrbitWheel-2.1-framework-dependent.zip` 共享运行时候选包；部署依赖及最终发行方式见 [部署说明](docs/winui-deployment.md)。
 
 ```powershell
 .\build.ps1
@@ -133,7 +133,7 @@ It is designed for Windows users who frequently switch apps, open repeated locat
 
 ## Features
 
-* Six-section radial menu, numbered clockwise from the upper-right sector as `1–6`.
+* Six-section radial menu, numbered clockwise from the right-hand sector as `1–6`.
 * Supports hold-and-release execution and direct sector execution with number keys.
 * Switch pages with the mouse wheel or left/right arrow keys; unlimited pages are supported.
 * Launch desktop programs, Store / UWP apps, and regular executable files.
@@ -156,7 +156,7 @@ It is designed for Windows users who frequently switch apps, open repeated locat
 
 ## Usage
 
-1. Download `OrbitWheel-2.0-self-contained.zip`.
+1. Download `OrbitWheel-2.1-self-contained.zip`.
 2. Extract it and run `OrbitWheel.exe`.
 3. Double-click the tray icon to open settings.
 4. Record a hotkey and configure actions for each sector.
@@ -171,7 +171,7 @@ Configuration is saved at:
 
 Host: Windows PowerShell 5.1 and .NET Framework 4.x. Settings: .NET SDK 10.0.400 and Windows App SDK (restored through NuGet).
 
-Keep the `Settings` directory beside the host EXE. A separate `OrbitWheel-2.0-framework-dependent.zip` candidate uses shared runtimes; see [deployment notes](docs/winui-deployment.md).
+Keep the `Settings` directory beside the host EXE. A separate `OrbitWheel-2.1-framework-dependent.zip` candidate uses shared runtimes; see [deployment notes](docs/winui-deployment.md).
 
 ```powershell
 .\build.ps1

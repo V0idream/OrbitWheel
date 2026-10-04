@@ -13,11 +13,11 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 [assembly: AssemblyTitle("OrbitWheel")]
-[assembly: AssemblyDescription("OrbitWheel 2.0 - WinUI 设置与径向快捷操作中心")]
+[assembly: AssemblyDescription("OrbitWheel 2.1 - WinUI 设置与径向快捷操作中心")]
 [assembly: AssemblyCompany("OrbitWheel")]
 [assembly: AssemblyProduct("OrbitWheel")]
-[assembly: AssemblyVersion("2.0.0.0")]
-[assembly: AssemblyFileVersion("2.0.0.0")]
+[assembly: AssemblyVersion("2.1.0.0")]
+[assembly: AssemblyFileVersion("2.1.0.0")]
 
 namespace OrbitWheelLite
 {
@@ -126,17 +126,24 @@ namespace OrbitWheelLite
     {
         public event EventHandler Triggered;
         public HotkeyWindow() { CreateHandle(new CreateParams()); }
+        private int activeId = 77;
+        internal int ActiveKey { get; private set; }
+        internal int ActiveModifiers { get; private set; }
         public bool Set(int modifiers, int key)
         {
-            Native.UnregisterHotKey(Handle, 77);
-            return Native.RegisterHotKey(Handle, 77, (uint)modifiers, (uint)key);
+            if (ActiveKey == key && ActiveModifiers == modifiers) return true;
+            int candidateId = activeId == 77 ? 78 : 77;
+            if (!Native.RegisterHotKey(Handle, candidateId, (uint)modifiers | 0x4000, (uint)key)) return false;
+            Native.UnregisterHotKey(Handle, activeId);
+            activeId = candidateId; ActiveKey = key; ActiveModifiers = modifiers;
+            return true;
         }
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == Native.WM_HOTKEY && Triggered != null) Triggered(this, EventArgs.Empty);
+            if (m.Msg == Native.WM_HOTKEY && m.WParam.ToInt32() == activeId && Triggered != null) Triggered(this, EventArgs.Empty);
             base.WndProc(ref m);
         }
-        public void Dispose() { Native.UnregisterHotKey(Handle, 77); DestroyHandle(); }
+        public void Dispose() { Native.UnregisterHotKey(Handle, activeId); DestroyHandle(); }
     }
 
     class KeyboardWatcher : IDisposable
@@ -1700,12 +1707,17 @@ namespace OrbitWheelLite
         private Timer configTimer;
         private string configRevision;
         private readonly bool passive;
+        private readonly bool skipStartup;
+        private readonly RuntimeReport runtime = RuntimeState.Identity();
         internal AppConfig CurrentConfig { get { return config; } }
         internal string ConfigRevision { get { return configRevision; } }
 
-        public OrbitContext(bool passive = false)
+        public OrbitContext(bool passive = false, bool skipStartup = false)
         {
+            if (skipStartup && String.IsNullOrEmpty(Environment.GetEnvironmentVariable("ORBITWHEEL_CONFIG_DIR")))
+                throw new InvalidOperationException("Skipping startup requires an isolated test configuration.");
             this.passive = passive;
+            this.skipStartup = skipStartup;
             config = ConfigStore.Load();
             AppConfig initial;
             if (ConfigStore.TryLoad(out initial, out configRevision)) config = initial;
@@ -1719,45 +1731,62 @@ namespace OrbitWheelLite
             tray.DoubleClick += delegate { ShowSettings(); };
             hotkey = new HotkeyWindow();
             hotkey.Triggered += delegate {
+                if (RuntimeState.Read("recording") != null) return;
                 if (wheel != null && !wheel.IsDisposed) return;
                 ShowWheel();
             };
             ApplyHotkey();
             ApplyMouseGestures();
             if (!passive) {
-                try { Startup.Set(config.StartWithWindows); }
-                catch (Exception error) { LogSettingsError(error); }
+                ApplyStartup();
             }
             configTimer = new Timer { Interval = 300 };
-            configTimer.Tick += delegate { try { ReloadConfiguration(); } catch (Exception error) { LogSettingsError(error); } };
+            configTimer.Tick += delegate { try { ReloadConfiguration(); PublishRuntime(); } catch (Exception error) { LogSettingsError(error); } };
             configTimer.Start();
+            PublishRuntime();
         }
 
         private void ApplyHotkey()
         {
-            if (passive) return;
-            if (!hotkey.Set(config.Modifiers, config.KeyCode))
+            if (passive) { runtime.Hotkey = "测试对端未注册硬件热键"; return; }
+            if (!hotkey.Set(config.Modifiers, config.KeyCode)) {
+                runtime.Hotkey = hotkey.ActiveKey != 0 ? "应用失败：快捷键被占用；原快捷键仍有效，请更换组合键。" : "应用失败：快捷键被占用，尚无有效绑定。";
                 tray.ShowBalloonTip(3000, "OrbitWheel", "快捷键已被其他程序占用，请在设置中更换。", ToolTipIcon.Warning);
+            } else runtime.Hotkey = "已生效";
+        }
+
+        private void ApplyStartup()
+        {
+            if (skipStartup) { runtime.Startup = "隔离桌面测试未修改用户启动项"; return; }
+            try { Startup.Set(config.StartWithWindows); runtime.Startup = "已生效"; }
+            catch (Exception error) { runtime.Startup = "应用失败：" + error.Message; LogSettingsError(error); }
+        }
+
+        private void PublishRuntime()
+        {
+            runtime.Revision = configRevision; runtime.Passive = passive;
+            try { RuntimeState.Write("runtime", runtime); }
+            catch (IOException error) { LogSettingsError(error); }
+            catch (UnauthorizedAccessException error) { LogSettingsError(error); }
         }
 
         private void ApplyMouseGestures()
         {
-            if (passive) return;
+            if (passive) { runtime.Gestures = "测试对端未启用硬件手势"; return; }
             if (!config.MouseGestures) {
                 if (mouseGestures != null) { mouseGestures.Dispose(); mouseGestures = null; }
+                runtime.Gestures = "已生效";
                 return;
             }
-            if (mouseGestures != null && mouseGestures.IsRunning) return;
+            if (mouseGestures != null && mouseGestures.IsRunning) { runtime.Gestures = "已生效"; return; }
             if (mouseGestures != null) mouseGestures.Dispose();
             mouseGestures = new MouseGestureService();
             if (!mouseGestures.IsRunning) {
                 mouseGestures.Dispose();
                 mouseGestures = null;
-                config.MouseGestures = false;
-                string revision;
-                if (ConfigStore.TrySave(config, configRevision, out revision)) configRevision = revision;
-                tray.ShowBalloonTip(3000, "OrbitWheel", "鼠标手势启动失败，已自动关闭。", ToolTipIcon.Warning);
-            }
+                runtime.Gestures = "应用失败：鼠标钩子未启动，请关闭开关后重试。";
+                tray.ShowBalloonTip(3000, "OrbitWheel", runtime.Gestures, ToolTipIcon.Warning);
+            } else runtime.Gestures = "已生效";
         }
 
         internal void ReloadConfiguration()
@@ -1772,8 +1801,7 @@ namespace OrbitWheelLite
             if (previous.Modifiers != config.Modifiers || previous.KeyCode != config.KeyCode) ApplyHotkey();
             if (previous.MouseGestures != config.MouseGestures) ApplyMouseGestures();
             if (!passive && previous.StartWithWindows != config.StartWithWindows) {
-                try { Startup.Set(config.StartWithWindows); }
-                catch (Exception error) { LogSettingsError(error); }
+                ApplyStartup();
             }
         }
 
@@ -1786,7 +1814,7 @@ namespace OrbitWheelLite
             wheel.ExecuteRequested += delegate(ActionItem a) { ActionRunner.Run(a, ShowSettings); };
             wheel.FormClosed += delegate { wheel = null; if (watcher != null) { watcher.Dispose(); watcher = null; } };
             if (config.Mode == "Hold" && !passive) {
-                watcher = new KeyboardWatcher(config.KeyCode);
+                watcher = new KeyboardWatcher(hotkey.ActiveKey);
                 watcher.TriggerReleased += delegate {
                     if (wheel != null && !wheel.IsDisposed) wheel.BeginInvoke(new Action(delegate { wheel.ExecuteHoldSelection(); }));
                 };
