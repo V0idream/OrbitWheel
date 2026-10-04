@@ -21,6 +21,7 @@ $wpf = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\WPF"
 if ($LASTEXITCODE -ne 0) { throw "Build failed: $LASTEXITCODE" }
 
 Copy-Item "$root\README.md" "$dist\README.md" -Force
+Copy-Item "$root\en.md" "$dist\en.md" -Force
 Copy-Item "$root\RELEASE_NOTES.md" "$dist\RELEASE_NOTES.md" -Force
 Copy-Item "$root\LICENSE" "$dist\LICENSE" -Force
 Write-Host "Built: $dist\OrbitWheel.exe"
