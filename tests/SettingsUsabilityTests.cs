@@ -212,8 +212,12 @@ class SettingsUsabilityTests
             Pump(form);
             Within(shell, form, label + " expanded shell");
             Panel expanded = sections[1];
-            Assert(!expanded.HorizontalScroll.Visible && !expanded.VerticalScroll.Visible, label + " stale scrollbars after growing");
-            Assert(expanded.Controls[0].Width == expanded.ClientSize.Width, label + " card did not stretch");
+            // A headless desktop can cap the requested larger native window.
+            // Scrollbars must match the resulting viewport, not the requested size.
+            Assert(expanded.HorizontalScroll.Visible == (expanded.AutoScrollMinSize.Width > expanded.ClientSize.Width) &&
+                   expanded.VerticalScroll.Visible == (expanded.AutoScrollMinSize.Height > expanded.ClientSize.Height),
+                   label + " scrollbars do not match the expanded viewport: viewport=" + expanded.ClientSize + " content=" + expanded.AutoScrollMinSize);
+            Assert(expanded.Controls[0].Width == Math.Max(expanded.AutoScrollMinSize.Width, expanded.ClientSize.Width), label + " card did not stretch");
         }
     }
 
