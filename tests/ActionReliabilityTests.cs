@@ -226,7 +226,7 @@ class ActionReliabilityTests
     {
         string path = Path.Combine(sandbox, name, FixtureName + ".exe");
         Directory.CreateDirectory(Path.GetDirectoryName(path));
-        File.Copy(Assembly.GetExecutingAssembly().Location, path, true);
+        File.Copy(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FixtureName + ".exe"), path, true);
         return path;
     }
 
@@ -257,6 +257,8 @@ class ActionReliabilityTests
         uint pid;
         Native.GetWindowThreadProcessId(hwnd, out pid);
         Assert(hwnd != IntPtr.Zero && pid == process.Id, message);
+        string expectedHandle = File.ReadAllText(Path.Combine(Path.GetDirectoryName((string)Runner("GetProcessExecutablePath", process)), "ready-" + process.Id + ".txt"));
+        Assert(hwnd.ToInt64() == Int64.Parse(expectedHandle), message + " (selected another window of the fixture process)");
     }
 
     static List<Process> OwnedFixtures(string path)

@@ -21,6 +21,20 @@ $buildExit = $LASTEXITCODE
 Get-Content -LiteralPath $buildLog -TotalCount 60
 if ($buildExit -ne 0) { throw "Regression harness build failed: $buildExit" }
 
+# The production launch path must receive a GUI executable, not a console harness
+# whose extra console window can win the production window-size scoring on runners.
+$fixturePath = Join-Path $testPath 'OrbitReliabilityTarget.exe'
+& $compilerPath /nologo /codepage:65001 /target:winexe /main:ActionReliabilityTests `
+    /out:$fixturePath /reference:System.dll /reference:System.Drawing.dll `
+    /reference:System.Windows.Forms.dll /reference:System.Web.Extensions.dll `
+    /reference:"$wpfPath\UIAutomationClient.dll" `
+    /reference:"$wpfPath\UIAutomationTypes.dll" /reference:"$wpfPath\WindowsBase.dll" `
+    /resource:"$repoRoot\assets\system-icons-sheet.png",OrbitWheel.SystemIcons `
+    "$repoRoot\OrbitWheelLite.cs" "$repoRoot\tests\ActionReliabilityTests.cs" *> $buildLog
+$buildExit = $LASTEXITCODE
+Get-Content -LiteralPath $buildLog -TotalCount 60
+if ($buildExit -ne 0) { throw "GUI fixture build failed: $buildExit" }
+
 $testArguments = @()
 if ($IncludeTray) { $testArguments += '--include-tray' }
 if ($TrayOnly) { $testArguments += '--tray-only' }
