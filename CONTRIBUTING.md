@@ -33,21 +33,23 @@ Fork PR 的 Actions 运行可能需要维护者首次批准，由 GitHub 的仓�
 
 ## 本地构建与打包
 
-环境要求与原项目一致：Windows、Windows PowerShell 5.1、.NET Framework 4.x。无需启动软件、注册全局热键或执行系统动作即可完成构建检查。
+主程序继续使用 .NET Framework；WinUI 设置需要 Windows PowerShell 5.1、.NET SDK 10.0.400 和锁定的 Windows App SDK 1.8。构建细节和运行前置条件见 `docs/winui-deployment.md`。构建检查不注册全局热键或执行系统动作。
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-release.ps1
 ```
 
-脚本调用原 `build.ps1`，检查 EXE 产品名和版本、README/发布说明版本、四个分发文件、ZIP 内容和打包后的 EXE 哈希，生成：
+脚本构建 WinForms 主程序及两种 WinUI 部署候选，检查两端数字版本、README/发布说明版本，并逐文件核对 ZIP 内容与 SHA256，生成：
 
 ```text
-dist/release/OrbitWheel-<version>.zip
+dist/release/OrbitWheel-<version>-self-contained.zip
+dist/release/OrbitWheel-<version>-framework-dependent.zip
+dist/release/PACKAGE-SIZES.json
 dist/release/SHA256SUMS.txt
 dist/release/RELEASE_NOTES.md
 ```
 
-ZIP 根目录仅包含 `OrbitWheel.exe`、`README.md`、`RELEASE_NOTES.md` 和 `LICENSE`。本地审计文件等其他 `dist` 内容不会进入分发包。
+ZIP 根目录包含 WinForms 主程序、说明与许可证，`Settings/` 包含完整 WinUI 程序，另附 `DEPLOYMENT.md`。其他 `dist` 内容不会进入分发包。自包含与共享运行时版的体积分别记录，尚未锁定正式发行方式。
 
 发布时可以明确指定产品版本，例如：
 
@@ -65,7 +67,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-releas
 - 向 `OrbitWheel` 推送；
 - 手动运行 Actions 中的 CI。
 
-`Windows build` 在 GitHub 托管的 Windows 2022 runner 上构建、检查并打包，上传 ZIP 和 SHA256 文件供维护者下载验收。权限为只读，不创建 Release。
+`Windows build` 在 GitHub 托管的 Windows 2022 runner 上构建、检查并打包，上传两种 ZIP、SHA256 和体积报告供维护者下载验收。权限为只读，不创建 Release。
 
 CI 同时运行 `1.2` 动作可靠性回归，检查扇区保存、释放位置和真实应用进程身份。可在本地执行：
 
@@ -83,9 +85,11 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-action-re
 
 该检查创建专用通知图标，调用生产托盘双击逻辑并确认目标进程窗口恢复及鼠标位置还原；执行时会短暂操作任务栏和鼠标，完成后移除自建图标并关闭测试进程。无人值守 CI 不运行此项。真实快捷键、鼠标手势、主题、DPI 和常用软件的托盘兼容性仍应单独报告实际验证结果。
 
+真实 WinUI 与 WinForms 配置同步回归入口：`scripts/test-shared-config.ps1 -WinUI -SettingsPath '<完整候选包>\Settings\OrbitWheel.Settings.exe'`。它使用隔离配置和禁用硬件钩子的生产主程序上下文；截图、覆盖范围与人工验收边界见 `docs/winui-deployment.md`。`build.ps1` 单独执行只构建主程序，完整可运行包必须执行打包脚本。
+
 ## Release workflow
 
-`1.3` 设置窗口回归也在 CI 和 Release 构建 job 中运行，本地入口为：
+历史 WinForms 设置窗口作为兼容回归保留在 `legacy/`，不参与主程序分发；它仍在 CI 和 Release 构建 job 中验证，本地入口为：
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-settings-usability.ps1
@@ -97,9 +101,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-settings-
 
 1. 确认 Tag 指向的提交已经合入 `OrbitWheel`；
 2. 确认 Tag 的产品版本与 EXE 数字版本相符；
-3. 在 Windows runner 构建、运行动作可靠性回归、验证并生成 ZIP、SHA256 和发布说明；
+3. 在 Windows runner 构建两种部署包，运行动作、旧编辑器兼容以及真实 WinUI/WinForms 双进程共享配置回归，生成 ZIP、SHA256、体积报告和发布说明；
 4. 在独立 job 下载构建产物并再次核对 ZIP 的 SHA256；
-5. 用 `GITHUB_TOKEN` 创建 Draft Release，附 ZIP 和 `SHA256SUMS.txt`，正文使用 `RELEASE_NOTES.md`；带后缀的版本标记为预发布。
+5. 用 `GITHUB_TOKEN` 创建 Draft Release，附两种 ZIP、`SHA256SUMS.txt` 和 `PACKAGE-SIZES.json`，正文使用 `RELEASE_NOTES.md`；带后缀的版本标记为预发布。
 
 只有创建 Draft Release 的 job 具有 `contents: write`。Fork 中推送 Tag 不会创建原项目 Release。
 
@@ -119,7 +123,7 @@ Draft Release 完成后，维护者核对版本、附件和实际 Windows 验收
 1. 首个 PR 引入构建、打包 workflow 和贡献说明。
 2. `1.2` 的修复按 issue #1、#2、#3 分别提交并验证。
 3. `1.3` 修复 issue #4 的窗口布局。
-4. `2.0` 的 issue #5 先做主界面原型，再集成和验收；届时按新工具链更新 workflow。
+4. `2.0` 的 issue #5 使用独立 WinUI 3 设置进程，保留 WinForms 轮盘；先验收两端同步与候选包体积，再决定正式部署方式。
 
 ## GitHub 官方说明
 

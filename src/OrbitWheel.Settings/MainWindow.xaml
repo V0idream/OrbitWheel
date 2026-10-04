@@ -1,0 +1,27 @@
+<Window x:Class="OrbitWheel.Settings.MainWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Window.SystemBackdrop><MicaBackdrop /></Window.SystemBackdrop>
+  <Grid>
+    <NavigationView x:Name="Navigation" IsSettingsVisible="False" IsBackButtonVisible="Collapsed"
+        SelectionChanged="Navigate" PaneDisplayMode="Auto" Header="OrbitWheel 设置">
+      <NavigationView.MenuItems>
+        <NavigationViewItem Content="常规" Tag="0" Icon="Home" />
+        <NavigationViewItem Content="页面与动作" Tag="1" Icon="Edit" />
+        <NavigationViewItem Content="外观效果" Tag="2" Icon="Pictures" />
+        <NavigationViewItem Content="快捷键" Tag="3" Icon="Keyboard" />
+        <NavigationViewItem Content="高级" Tag="4" Icon="Setting" />
+        <NavigationViewItem Content="关于" Tag="5" Icon="Help" />
+      </NavigationView.MenuItems>
+      <Grid Margin="24,8,24,24" RowSpacing="12">
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+        <InfoBar x:Name="Status" IsOpen="True" IsClosable="False" Severity="Informational" Title="自动保存">
+          <InfoBar.ActionButton><Button x:Name="Reload" Content="重新加载" Click="ReloadClick" Visibility="Collapsed" /></InfoBar.ActionButton>
+        </InfoBar>
+        <ScrollViewer x:Name="PageScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="PageContent" Spacing="20" MaxWidth="900" HorizontalAlignment="Stretch" />
+        </ScrollViewer>
+      </Grid>
+    </NavigationView>
+  </Grid>
+</Window>

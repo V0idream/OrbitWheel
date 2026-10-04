@@ -13,106 +13,14 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 [assembly: AssemblyTitle("OrbitWheel")]
-[assembly: AssemblyDescription("OrbitWheel 1.3 - 径向快捷操作中心")]
+[assembly: AssemblyDescription("OrbitWheel 2.0 - WinUI 设置与径向快捷操作中心")]
 [assembly: AssemblyCompany("OrbitWheel")]
 [assembly: AssemblyProduct("OrbitWheel")]
-[assembly: AssemblyVersion("1.3.0.0")]
-[assembly: AssemblyFileVersion("1.3.0.0")]
+[assembly: AssemblyVersion("2.0.0.0")]
+[assembly: AssemblyFileVersion("2.0.0.0")]
 
 namespace OrbitWheelLite
 {
-    public class ActionItem
-    {
-        public string Name { get; set; }
-        public string Type { get; set; }
-        public string Target { get; set; }
-    }
-
-    public class WheelPage
-    {
-        public string Name { get; set; }
-        public List<ActionItem> Actions { get; set; }
-    }
-
-    public class AppConfig
-    {
-        public int Modifiers { get; set; }
-        public int KeyCode { get; set; }
-        public string Mode { get; set; }
-        public string Style { get; set; }
-        public bool StartWithWindows { get; set; }
-        public bool MouseGestures { get; set; }
-        public List<WheelPage> Pages { get; set; }
-
-        public static AppConfig Default()
-        {
-            return new AppConfig {
-                Modifiers = 2,
-                KeyCode = (int)Keys.Space,
-                Mode = "Hold",
-                Style = "液态玻璃",
-                StartWithWindows = false,
-                MouseGestures = false,
-                Pages = new List<WheelPage> {
-                    new WheelPage {
-                        Name = "常用",
-                        Actions = new List<ActionItem> {
-                            A("资源管理器", "Explorer", ""),
-                            A("设置", "Settings", ""),
-                            A("锁定", "Lock", ""),
-                            A("音量 +", "VolumeUp", ""),
-                            A("音量 -", "VolumeDown", ""),
-                            A("睡眠", "Sleep", "")
-                        }
-                    }
-                }
-            };
-        }
-
-        private static ActionItem A(string name, string type, string target)
-        {
-            return new ActionItem { Name = name, Type = type, Target = target };
-        }
-    }
-
-    static class ConfigStore
-    {
-        public static readonly string Folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "OrbitWheel");
-        public static readonly string FilePath = Path.Combine(Folder, "config.json");
-
-        public static AppConfig Load()
-        {
-            try {
-                if (File.Exists(FilePath)) {
-                    AppConfig c = new JavaScriptSerializer().Deserialize<AppConfig>(File.ReadAllText(FilePath));
-                    Normalize(c);
-                    return c;
-                }
-            } catch { }
-            AppConfig d = AppConfig.Default();
-            Save(d);
-            return d;
-        }
-
-        public static void Save(AppConfig config)
-        {
-            Directory.CreateDirectory(Folder);
-            File.WriteAllText(FilePath, new JavaScriptSerializer().Serialize(config));
-        }
-
-        private static void Normalize(AppConfig c)
-        {
-            if (c.Pages == null || c.Pages.Count == 0) c.Pages = AppConfig.Default().Pages;
-            foreach (WheelPage p in c.Pages) {
-                if (p.Actions == null) p.Actions = new List<ActionItem>();
-                while (p.Actions.Count < 6) p.Actions.Add(new ActionItem { Name = "空", Type = "None", Target = "" });
-                if (p.Actions.Count > 6) p.Actions.RemoveRange(6, p.Actions.Count - 6);
-            }
-            if (String.IsNullOrEmpty(c.Mode)) c.Mode = "Hold";
-            if (String.IsNullOrEmpty(c.Style)) c.Style = "液态玻璃";
-        }
-    }
-
     static class Native
     {
         public const int WM_HOTKEY = 0x0312;
@@ -1769,728 +1677,6 @@ namespace OrbitWheelLite
         }
     }
 
-    static class ActionNames
-    {
-        private static readonly Dictionary<string, string> Names = new Dictionary<string, string> {
-            {"None","无操作"}, {"App","打开程序"}, {"Folder","打开文件夹"}, {"Command","执行命令"},
-            {"Explorer","打开资源管理器"}, {"Settings","打开 OrbitWheel 设置"},
-            {"Lock","锁定电脑"}, {"Sleep","进入睡眠"}, {"Shutdown","关闭电脑"},
-            {"Restart","重新启动"}, {"VolumeUp","增大音量"}, {"VolumeDown","减小音量"},
-            {"Mute","静音 / 取消静音"}
-        };
-        public static string Chinese(string id) { return Names.ContainsKey(id) ? Names[id] : "无操作"; }
-        public static string Id(string chinese)
-        {
-            foreach (KeyValuePair<string,string> pair in Names) if (pair.Value == chinese) return pair.Key;
-            return "None";
-        }
-        public static object[] AllChinese()
-        {
-            List<object> result = new List<object>();
-            foreach (string id in new string[] { "None","App","Folder","Command","Explorer","Settings","Lock","Sleep","Shutdown","Restart","VolumeUp","VolumeDown","Mute" })
-                result.Add(Chinese(id));
-            return result.ToArray();
-        }
-    }
-
-    class ApplicationChoice
-    {
-        public string Name { get; set; }
-        public string Target { get; set; }
-        public override string ToString() { return Name; }
-    }
-
-    static class ApplicationCatalog
-    {
-        private static string ResolveAppsFolderPath(string path)
-        {
-            if (String.IsNullOrWhiteSpace(path)) return path;
-            Dictionary<string, string> roots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
-                {"{6D809377-6AF0-444B-8957-A3773F02200E}", Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)},
-                {"{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}", Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)},
-                {"{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}", Environment.GetFolderPath(Environment.SpecialFolder.System)},
-                {"{D65231B0-B2F1-4857-A4CE-A8E7C6EA7D27}", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "SysWOW64")},
-                {"{F38BF404-1D43-42F2-9305-67DE0B28FC23}", Environment.GetFolderPath(Environment.SpecialFolder.Windows)}
-            };
-            foreach (KeyValuePair<string,string> root in roots) {
-                if (path.StartsWith(root.Key + "\\", StringComparison.OrdinalIgnoreCase)) {
-                    string candidate = Path.Combine(root.Value, path.Substring(root.Key.Length + 1));
-                    if (File.Exists(candidate)) return candidate;
-                }
-            }
-            return path;
-        }
-
-        public static List<ApplicationChoice> Load()
-        {
-            List<ApplicationChoice> result = new List<ApplicationChoice>();
-            try {
-                Type shellType = Type.GetTypeFromProgID("Shell.Application");
-                object shell = Activator.CreateInstance(shellType);
-                object folder = shellType.InvokeMember("NameSpace", BindingFlags.InvokeMethod, null, shell, new object[] { "shell:AppsFolder" });
-                object items = folder.GetType().InvokeMember("Items", BindingFlags.InvokeMethod, null, folder, null);
-                int count = Convert.ToInt32(items.GetType().InvokeMember("Count", BindingFlags.GetProperty, null, items, null));
-                for (int i = 0; i < count; i++) {
-                    object item = items.GetType().InvokeMember("Item", BindingFlags.InvokeMethod, null, items, new object[] { i });
-                    string name = Convert.ToString(item.GetType().InvokeMember("Name", BindingFlags.GetProperty, null, item, null));
-                    string path = Convert.ToString(item.GetType().InvokeMember("Path", BindingFlags.GetProperty, null, item, null));
-                    path = ResolveAppsFolderPath(path);
-                    if (!String.IsNullOrWhiteSpace(name) && !String.IsNullOrWhiteSpace(path))
-                        result.Add(new ApplicationChoice { Name = name, Target = File.Exists(path) ? path : path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase) ? path : "shell:AppsFolder\\" + path });
-                }
-            } catch { }
-            result.Sort(delegate(ApplicationChoice a, ApplicationChoice b) { return String.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase); });
-            return result;
-        }
-    }
-
-    class ApplicationPicker : Form
-    {
-        private TextBox search;
-        private ListBox list;
-        private List<ApplicationChoice> all;
-        public ApplicationChoice SelectedApplication { get; private set; }
-
-        public ApplicationPicker()
-        {
-            Text = "选择应用 - Applications";
-            Icon = IconFactory.AppIcon();
-            StartPosition = FormStartPosition.CenterParent;
-            ClientSize = new Size(680, 720);
-            BackColor = Color.FromArgb(7, 15, 30);
-            ForeColor = Color.White;
-            Font = new Font("Microsoft YaHei UI", 10f);
-            GlassPanel shell = new GlassPanel { Left = 18, Top = 18, Width = 644, Height = 684, Radius = 22, BorderColor = Color.FromArgb(82, 112, 160, 215) };
-            Controls.Add(shell);
-            Label title = new Label { Text = "选择应用", Left = 28, Top = 22, Width = 400, Height = 38, Font = new Font("Microsoft YaHei UI", 20f, FontStyle.Bold), ForeColor = Color.White, BackColor = Color.Transparent };
-            Label hint = new Label { Text = "Applications 中的所有应用，也可切换为普通文件选择", Left = 30, Top = 64, Width = 540, Height = 24, ForeColor = Color.FromArgb(150, 180, 215), BackColor = Color.Transparent };
-            search = new TextBox { Left = 28, Top = 104, Width = 588, Height = 36, BackColor = Color.FromArgb(18, 31, 51), ForeColor = Color.White, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Microsoft YaHei UI", 11f) };
-            list = new ListBox { Left = 28, Top = 158, Width = 588, Height = 430, BackColor = Color.FromArgb(18, 29, 47), ForeColor = Color.White, BorderStyle = BorderStyle.None, ItemHeight = 58, Font = new Font("Microsoft YaHei UI", 11f), DrawMode = DrawMode.OwnerDrawFixed };
-            Button browse = new Button { Text = "浏览文件…", Left = 28, Top = 610, Width = 160, Height = 44, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(36, 55, 82), ForeColor = Color.White };
-            Button choose = new Button { Text = "选择应用", Left = 456, Top = 610, Width = 160, Height = 44, FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(20, 105, 224), ForeColor = Color.White };
-            browse.FlatAppearance.BorderSize = 0;
-            choose.FlatAppearance.BorderSize = 0;
-            shell.Controls.AddRange(new Control[] { title, hint, search, list, browse, choose });
-            search.TextChanged += delegate { Filter(); };
-            list.DoubleClick += delegate { Accept(); };
-            list.DrawItem += DrawApplication;
-            browse.Click += delegate { BrowseFile(); };
-            choose.Click += delegate { Accept(); };
-            all = ApplicationCatalog.Load();
-            Filter();
-        }
-
-        private void Filter()
-        {
-            string query = search.Text.Trim();
-            list.BeginUpdate(); list.Items.Clear();
-            foreach (ApplicationChoice app in all)
-                if (query.Length == 0 || app.Name.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0) list.Items.Add(app);
-            list.EndUpdate();
-        }
-
-        private void Accept()
-        {
-            SelectedApplication = list.SelectedItem as ApplicationChoice;
-            if (SelectedApplication == null) return;
-            DialogResult = DialogResult.OK;
-            Close();
-        }
-
-        private void BrowseFile()
-        {
-            using (OpenFileDialog dialog = new OpenFileDialog { Title = "选择应用程序或快捷方式", Filter = "应用与快捷方式 (*.exe;*.lnk)|*.exe;*.lnk|所有文件 (*.*)|*.*" }) {
-                if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                SelectedApplication = new ApplicationChoice { Name = Path.GetFileNameWithoutExtension(dialog.FileName), Target = dialog.FileName };
-                DialogResult = DialogResult.OK;
-                Close();
-            }
-        }
-
-        private void DrawApplication(object sender, DrawItemEventArgs e)
-        {
-            if (e.Index < 0 || e.Index >= list.Items.Count) return;
-            ApplicationChoice app = (ApplicationChoice)list.Items[e.Index];
-            bool selected = (e.State & DrawItemState.Selected) != 0;
-            using (SolidBrush background = new SolidBrush(selected ? Color.FromArgb(35, 100, 185) : Color.FromArgb(18, 29, 47))) e.Graphics.FillRectangle(background, e.Bounds);
-            using (Icon icon = ActionIcons.GetApplicationIcon(app.Target)) {
-                if (icon != null) e.Graphics.DrawIcon(icon, new Rectangle(e.Bounds.X + 14, e.Bounds.Y + 9, 40, 40));
-                else {
-                    Rectangle fallback = new Rectangle(e.Bounds.X + 14, e.Bounds.Y + 9, 40, 40);
-                    using (SolidBrush fb = new SolidBrush(Color.FromArgb(70, 122, 220))) e.Graphics.FillEllipse(fb, fallback);
-                    using (Font ff = new Font("Segoe UI", 12f, FontStyle.Bold))
-                    using (SolidBrush ft = new SolidBrush(Color.White)) {
-                        string initial = String.IsNullOrWhiteSpace(app.Name) ? "A" : app.Name.Substring(0, 1).ToUpper();
-                        SizeF size = e.Graphics.MeasureString(initial, ff);
-                        e.Graphics.DrawString(initial, ff, ft, fallback.X + (fallback.Width - size.Width) / 2, fallback.Y + (fallback.Height - size.Height) / 2);
-                    }
-                }
-            }
-            using (SolidBrush text = new SolidBrush(Color.White)) e.Graphics.DrawString(app.Name, Font, text, e.Bounds.X + 70, e.Bounds.Y + 18);
-            using (Pen line = new Pen(Color.FromArgb(38, 58, 83))) e.Graphics.DrawLine(line, e.Bounds.X + 70, e.Bounds.Bottom - 1, e.Bounds.Right - 12, e.Bounds.Bottom - 1);
-        }
-    }
-
-    class GlassPanel : Panel
-    {
-        public int Radius = 18;
-        public Color BorderColor = Color.FromArgb(55, 105, 160, 220);
-
-        public GlassPanel()
-        {
-            DoubleBuffered = true;
-            BackColor = Color.FromArgb(26, 38, 58);
-        }
-
-        protected override void OnResize(EventArgs e)
-        {
-            base.OnResize(e);
-            Region oldRegion = Region;
-            using (GraphicsPath path = RoundedPath(ClientRectangle, Radius)) Region = new Region(path);
-            if (oldRegion != null) oldRegion.Dispose();
-        }
-
-        protected override void OnPaintBackground(PaintEventArgs e)
-        {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            Rectangle r = new Rectangle(0, 0, Width - 1, Height - 1);
-            using (GraphicsPath path = RoundedPath(r, Radius))
-            using (LinearGradientBrush fill = new LinearGradientBrush(r, Color.FromArgb(36, 49, 72), Color.FromArgb(22, 31, 48), 120f)) {
-                e.Graphics.FillPath(fill, path);
-            }
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            Rectangle r = new Rectangle(0, 0, Width - 1, Height - 1);
-            using (GraphicsPath path = RoundedPath(r, Radius))
-            using (Pen border = new Pen(BorderColor, 1f)) {
-                e.Graphics.DrawPath(border, path);
-            }
-            base.OnPaint(e);
-        }
-
-        private static GraphicsPath RoundedPath(Rectangle r, int radius)
-        {
-            GraphicsPath path = new GraphicsPath();
-            int d = Math.Max(2, radius * 2);
-            path.AddArc(r.X, r.Y, d, d, 180, 90);
-            path.AddArc(r.Right - d, r.Y, d, d, 270, 90);
-            path.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
-            path.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
-    }
-
-    // Keep a readable card width on small work areas, with native scrolling for
-    // the overflow. Cards otherwise stretch to fill the available viewport.
-    class SettingsSection : Panel
-    {
-        private float layoutScale = 1f;
-        private bool arranging;
-
-        public SettingsSection()
-        {
-            SuspendLayout(); // Arrange only after the full control tree is scaled.
-            Dock = DockStyle.Fill;
-            BackColor = Color.Transparent;
-            AutoScroll = true;
-            Visible = false;
-        }
-
-        protected override void ScaleControl(SizeF factor, BoundsSpecified specified)
-        {
-            layoutScale *= factor.Width;
-            base.ScaleControl(factor, specified);
-        }
-
-        protected override void OnLayout(LayoutEventArgs e)
-        {
-            base.OnLayout(e);
-            if (arranging) return;
-            arranging = true;
-            try {
-                int bottom = 0;
-                foreach (Control card in Controls)
-                    bottom = Math.Max(bottom, card.Bottom - AutoScrollPosition.Y);
-                int minimumWidth = (int)Math.Round(700 * layoutScale);
-                AutoScrollMinSize = new Size(minimumWidth, bottom + (int)Math.Round(16 * layoutScale));
-                foreach (Control card in Controls) {
-                    card.Left = AutoScrollPosition.X;
-                    card.Width = Math.Max(minimumWidth, ClientSize.Width);
-                }
-            } finally { arranging = false; }
-        }
-    }
-
-    class SettingsActionGrid : DataGridView
-    {
-        protected override void ScaleControl(SizeF factor, BoundsSpecified specified)
-        {
-            base.ScaleControl(factor, specified);
-            // WinForms scales the grid bounds, but not these pixel-based metrics.
-            ColumnHeadersHeight = (int)Math.Round(ColumnHeadersHeight * factor.Height);
-            RowTemplate.Height = (int)Math.Round(RowTemplate.Height * factor.Height);
-            foreach (DataGridViewRow row in Rows) row.Height = (int)Math.Round(row.Height * factor.Height);
-            foreach (DataGridViewColumn column in Columns)
-                column.MinimumWidth = (int)Math.Round(column.MinimumWidth * factor.Width);
-        }
-    }
-
-    class SettingsForm : Form
-    {
-        private AppConfig config;
-        private ListBox pages;
-        private DataGridView grid;
-        private TextBox pageName;
-        private ComboBox mode, style;
-        private TextBox hotkeyRecorder;
-        private int recordedModifiers;
-        private int recordedKey;
-        private CheckBox startup;
-        private CheckBox mouseGestures;
-        private Label effectDescription;
-        private Panel contentHost;
-        private readonly List<Button> navigation = new List<Button>();
-        private readonly List<Panel> sections = new List<Panel>();
-        private bool loadingGrid;
-        private bool choosingApp;
-        private bool showingPage;
-        private bool initializing;
-        private int editingPage = -1;
-        private float layoutScale = 1f;
-        public event EventHandler ConfigSaved;
-
-        public SettingsForm(AppConfig c)
-        {
-            SuspendLayout();
-            config = c;
-            Text = "OrbitWheel 设置";
-            Icon = IconFactory.AppIcon();
-            StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(1180, 760);
-            MinimumSize = new Size(1080, 700);
-            BackColor = Color.FromArgb(7, 15, 30);
-            ForeColor = Color.White;
-            Font = new Font("Microsoft YaHei UI", 9.5f);
-            Padding = new Padding(18);
-            AutoScaleDimensions = new SizeF(96f, 96f);
-            AutoScaleMode = AutoScaleMode.Dpi;
-            initializing = true;
-            Build();
-            LoadPageList();
-            ResumeLayout(false);
-            PerformAutoScale();
-            foreach (Panel section in sections) section.ResumeLayout(true);
-            initializing = false;
-            FormClosing += delegate { if (grid != null) { grid.EndEdit(); AutoSave(); } };
-        }
-
-        protected override void ScaleControl(SizeF factor, BoundsSpecified specified)
-        {
-            layoutScale *= factor.Width;
-            base.ScaleControl(factor, specified);
-        }
-
-        protected override void OnLoad(EventArgs e)
-        {
-            FitToWorkingArea(Screen.FromControl(this).WorkingArea);
-            base.OnLoad(e);
-        }
-
-        private void FitToWorkingArea(Rectangle workingArea)
-        {
-            // Screen coordinates share the window's DPI context, including the
-            // Windows compatibility scaling used by this .NET Framework app.
-            Size trackLimit = SystemInformation.MaxWindowTrackSize;
-            MinimumSize = new Size(Math.Min((int)Math.Round(1080 * layoutScale), Math.Min(workingArea.Width, trackLimit.Width)),
-                                   Math.Min((int)Math.Round(700 * layoutScale), Math.Min(workingArea.Height, trackLimit.Height)));
-            Size = new Size(Math.Min(Width, workingArea.Width), Math.Min(Height, workingArea.Height));
-            if (StartPosition == FormStartPosition.CenterScreen)
-                Location = new Point(workingArea.Left + (workingArea.Width - Width) / 2,
-                                     workingArea.Top + (workingArea.Height - Height) / 2);
-        }
-
-        private void Build()
-        {
-            GlassPanel shell = new GlassPanel { Name = "settingsShell", Left = 18, Top = 18, Width = 1144, Height = 724, Dock = DockStyle.Fill, Radius = 22, BorderColor = Color.FromArgb(85, 112, 161, 220) };
-            Controls.Add(shell);
-            Label appMark = L("◉", 26, 20, 44, 44, 24, false); appMark.Anchor = AnchorStyles.Top | AnchorStyles.Left; appMark.ForeColor = Color.FromArgb(68, 178, 255); shell.Controls.Add(appMark);
-            Label title = L("设置", 78, 24, 260, 38, 20, true); title.Anchor = AnchorStyles.Top | AnchorStyles.Left; shell.Controls.Add(title);
-            Panel rule = new Panel { Left = 24, Top = 76, Width = 1096, Height = 1, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, BackColor = Color.FromArgb(55, 112, 145, 185) }; shell.Controls.Add(rule);
-
-            GlassPanel sidebar = new GlassPanel { Name = "settingsNavigation", Left = 22, Top = 96, Width = 220, Height = 604, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left, AutoScroll = true, AutoScrollMargin = new Size(0, 16), Radius = 18, BorderColor = Color.FromArgb(42, 93, 130, 180) };
-            shell.Controls.Add(sidebar);
-            string[] navText = { "⌂   常规", "▦   页面与动作", "◉   外观效果", "⌨   快捷键", "⚙   高级", "●   关于" };
-            for (int i = 0; i < navText.Length; i++) {
-                Button nav = B(navText[i], 14, 18 + i * 58, 192, 46);
-                nav.TextAlign = ContentAlignment.MiddleLeft;
-                nav.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-                nav.Padding = new Padding(18, 0, 0, 0);
-                int index = i;
-                nav.Click += delegate { ShowSection(index); };
-                sidebar.Controls.Add(nav);
-                navigation.Add(nav);
-            }
-            Label auto = L("所有更改都会自动保存", 24, 390, 180, 24, 8, false); auto.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right; auto.ForeColor = Color.FromArgb(130, 165, 205); sidebar.Controls.Add(auto);
-
-            contentHost = new Panel { Left = 262, Top = 96, Width = 858, Height = 604, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, BackColor = Color.Transparent };
-            shell.Controls.Add(contentHost);
-
-            Panel general = Section();
-            GlassPanel startupCard = Card("启动与托盘", 0, 0, 858, 132);
-            startup = new CheckBox { Left = 28, Top = 57, Width = 250, Height = 30, Text = "随 Windows 自动启动", ForeColor = Color.White, BackColor = Color.Transparent, Font = new Font("Microsoft YaHei UI", 10.5f) };
-            startupCard.Controls.Add(startup);
-            Label trayHint = L("关闭设置窗口后，OrbitWheel 仍会留在系统托盘", 28, 91, 520, 22, 8.5f, false); trayHint.ForeColor = Color.FromArgb(145, 174, 210); startupCard.Controls.Add(trayHint);
-            general.Controls.Add(startupCard);
-            GlassPanel triggerCard = Card("触发模式", 0, 148, 858, 154);
-            mode = C(28, 60, 390); mode.Items.AddRange(new object[] { "点击模式", "按住并松开执行" }); triggerCard.Controls.Add(mode);
-            Label triggerHint = L("默认按住快捷键，移动到目标后松开执行", 28, 102, 530, 22, 8.5f, false); triggerHint.ForeColor = Color.FromArgb(145, 174, 210); triggerCard.Controls.Add(triggerHint);
-            general.Controls.Add(triggerCard);
-            GlassPanel pageHintCard = Card("页面切换", 0, 318, 858, 132);
-            pageHintCard.Controls.Add(L("滚动鼠标滚轮切换页面", 28, 60, 330, 26, 10.5f, false));
-            Label dots = L("●  ●  ●", 690, 61, 120, 24, 11, false); dots.ForeColor = Color.FromArgb(38, 157, 255); pageHintCard.Controls.Add(dots);
-            dots.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            general.Controls.Add(pageHintCard);
-            sections.Add(general);
-
-            Panel pageSection = Section();
-            GlassPanel pageBox = Card("页面与六个扇区", 0, 0, 858, 586);
-            pages = new ListBox { Left = 22, Top = 58, Width = 176, Height = 438, BackColor = Color.FromArgb(20,31,49), ForeColor = Color.White, BorderStyle = BorderStyle.None, ItemHeight = 38, Font = new Font("Microsoft YaHei UI", 10f) };
-            pages.SelectedIndexChanged += delegate { ShowPage(); };
-            pageBox.Controls.Add(pages);
-            Button add = B("＋  添加页面", 22, 512, 112, 42); add.Click += delegate { AddPage(); }; pageBox.Controls.Add(add);
-            Button del = B("−", 144, 512, 54, 42); del.BackColor = Color.FromArgb(67, 42, 58); del.Click += delegate { DeletePage(); }; pageBox.Controls.Add(del);
-            ToolTip pageTips = new ToolTip();
-            pageTips.SetToolTip(add, "添加新页面");
-            pageTips.SetToolTip(del, "删除当前页面");
-
-            pageName = new TextBox { Left = 220, Top = 58, Width = 608, Height = 32, BackColor = Color.FromArgb(22,37,59), ForeColor = Color.White, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Microsoft YaHei UI", 10.5f) };
-            pageName.TextChanged += delegate {
-                if (!showingPage && pages.SelectedIndex >= 0) {
-                    config.Pages[pages.SelectedIndex].Name = pageName.Text;
-                    if (Convert.ToString(pages.Items[pages.SelectedIndex]) != pageName.Text)
-                        pages.Items[pages.SelectedIndex] = pageName.Text;
-                    AutoSave();
-                }
-            };
-            pageBox.Controls.Add(pageName);
-            pageName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-
-            grid = new SettingsActionGrid { Left = 220, Top = 106, Width = 608, Height = 390, BackgroundColor = Color.FromArgb(20,31,49), ForeColor = Color.White, GridColor = Color.FromArgb(42,65,94), BorderStyle = BorderStyle.None, RowHeadersVisible = false, AllowUserToAddRows = false, AllowUserToDeleteRows = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal, ColumnHeadersHeight = 42, RowTemplate = { Height = 48 } };
-            grid.EnableHeadersVisualStyles = false;
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(35,47,68);
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
-            grid.DefaultCellStyle.BackColor = Color.FromArgb(24,32,48);
-            grid.DefaultCellStyle.ForeColor = Color.White;
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(50,91,151);
-            grid.Columns.Add("slot", "位置");
-            grid.Columns.Add("name", "名称");
-            DataGridViewComboBoxColumn typeCol = new DataGridViewComboBoxColumn { Name = "type", HeaderText = "动作类型" };
-            typeCol.FlatStyle = FlatStyle.Flat;
-            typeCol.Items.AddRange(ActionNames.AllChinese());
-            grid.Columns.Add(typeCol);
-            grid.Columns.Add("target", "程序路径 / 文件夹 / 命令");
-            // Row order is the persisted sector order, not a sortable display order.
-            foreach (DataGridViewColumn column in grid.Columns) column.SortMode = DataGridViewColumnSortMode.NotSortable;
-            grid.Columns[0].ReadOnly = true;
-            grid.Columns[0].FillWeight = 45; grid.Columns[1].FillWeight = 80; grid.Columns[2].FillWeight = 90; grid.Columns[3].FillWeight = 170;
-            grid.Columns[0].MinimumWidth = 54; grid.Columns[1].MinimumWidth = 90;
-            grid.Columns[2].MinimumWidth = 110; grid.Columns[3].MinimumWidth = 190;
-            grid.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            grid.CurrentCellDirtyStateChanged += delegate { if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
-            grid.CellValueChanged += delegate { HandleCellChange(); };
-            grid.SelectionChanged += delegate { UpdateActionEditor(); };
-            pageBox.Controls.Add(grid);
-            Label appHint = L("选择“打开程序”会打开应用选择器；选择“打开文件夹”会打开文件夹选择器。", 220, 512, 590, 50, 8, false); appHint.ForeColor = Color.FromArgb(125, 166, 210); pageBox.Controls.Add(appHint);
-            pageSection.Controls.Add(pageBox);
-            sections.Add(pageSection);
-
-            Panel appearance = Section();
-            GlassPanel styleCard = Card("视觉效果", 0, 0, 858, 190);
-            styleCard.Controls.Add(L("效果样式", 28, 62, 110, 24, 10, false));
-            style = C(142, 58, 310); style.Items.AddRange(new object[] { "液态玻璃", "高斯模糊", "亚克力" }); styleCard.Controls.Add(style);
-            effectDescription = L("", 28, 112, 700, 38, 9, false); effectDescription.ForeColor = Color.FromArgb(150, 188, 225); styleCard.Controls.Add(effectDescription);
-            appearance.Controls.Add(styleCard);
-            GlassPanel visualInfo = Card("圆环视觉说明", 0, 206, 858, 174);
-            visualInfo.Controls.Add(L("视觉效果仅应用于圆环本身，不影响整个屏幕。", 28, 62, 650, 26, 10, false));
-            Label material = L("液态玻璃强调折射高光；高斯模糊强调背景虚化；亚克力带有磨砂颗粒。", 28, 100, 740, 42, 9, false); material.ForeColor = Color.FromArgb(145, 174, 210); visualInfo.Controls.Add(material);
-            appearance.Controls.Add(visualInfo);
-            sections.Add(appearance);
-
-            Panel hotkeySection = Section();
-            GlassPanel hotkeyCard = Card("快捷键", 0, 0, 858, 190);
-            hotkeyRecorder = new TextBox { Left = 28, Top = 64, Width = 520, Height = 38, ReadOnly = true, BackColor = Color.FromArgb(15, 29, 48), ForeColor = Color.White, BorderStyle = BorderStyle.FixedSingle, TextAlign = HorizontalAlignment.Center, Font = new Font("Segoe UI", 12f) };
-            hotkeyRecorder.KeyDown += RecordHotkey;
-            hotkeyRecorder.Enter += delegate { hotkeyRecorder.Text = "请按下新的快捷键…"; };
-            hotkeyCard.Controls.Add(hotkeyRecorder);
-            hotkeyRecorder.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            Button record = B("录制快捷键", 570, 62, 180, 42); record.Click += delegate { hotkeyRecorder.Focus(); hotkeyRecorder.Text = "请按下新的快捷键…"; }; hotkeyCard.Controls.Add(record);
-            record.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            Label hotkeyHint = L("点击“录制快捷键”并按下任意组合键。", 28, 122, 620, 24, 9, false); hotkeyHint.ForeColor = Color.FromArgb(145, 174, 210); hotkeyCard.Controls.Add(hotkeyHint);
-            hotkeySection.Controls.Add(hotkeyCard);
-            sections.Add(hotkeySection);
-
-            Panel advanced = Section();
-            GlassPanel advancedCard = Card("鼠标手势", 0, 0, 858, 248);
-            mouseGestures = new CheckBox { Left = 28, Top = 58, Width = 360, Height = 30, Text = "启用左右键组合手势", ForeColor = Color.White, BackColor = Color.Transparent, Font = new Font("Microsoft YaHei UI", 10.5f) };
-            advancedCard.Controls.Add(mouseGestures);
-            Label gestureHint = L("同时按下鼠标左右键并移动，全部松开后执行：上滑开始菜单，下滑桌面，左右滑切换窗口。", 28, 96, 790, 40, 9, false); gestureHint.ForeColor = Color.FromArgb(145,174,210); advancedCard.Controls.Add(gestureHint);
-            Label safetyHint = L("组合手势期间会屏蔽原点击；普通单击仅在 110 毫秒识别窗口内短暂延后。", 28, 140, 770, 40, 9, false); safetyHint.ForeColor = Color.FromArgb(145,174,210); advancedCard.Controls.Add(safetyHint);
-            Label advancedHint = L("圆环中心取打开瞬间的鼠标位置；点击模式下重复快捷键无效，按 Esc 关闭。", 28, 188, 770, 40, 9, false); advancedHint.ForeColor = Color.FromArgb(145,174,210); advancedCard.Controls.Add(advancedHint);
-            advanced.Controls.Add(advancedCard);
-            sections.Add(advanced);
-
-            Panel about = Section();
-            GlassPanel aboutCard = Card("关于 OrbitWheel", 0, 0, 858, 220);
-            aboutCard.Controls.Add(L("OrbitWheel", 28, 62, 400, 40, 22, true));
-            Label aboutHint = L("鼠标中心的六等分径向快捷操作工具", 30, 108, 620, 28, 10, false); aboutHint.ForeColor = Color.FromArgb(145, 180, 220); aboutCard.Controls.Add(aboutHint);
-            aboutCard.Controls.Add(L("OrbitWheel 1.3 · 设置窗口可用性", 30, 153, 500, 24, 9, false));
-            about.Controls.Add(aboutCard);
-            sections.Add(about);
-
-            foreach (Panel section in sections) contentHost.Controls.Add(section);
-
-            style.SelectedIndexChanged += delegate { UpdateEffectDescription(); };
-            mode.SelectedIndexChanged += delegate { AutoSave(); };
-            style.SelectedIndexChanged += delegate { AutoSave(); };
-            startup.CheckedChanged += delegate { AutoSave(); };
-            mouseGestures.CheckedChanged += delegate { AutoSave(); };
-
-            recordedModifiers = config.Modifiers;
-            recordedKey = config.KeyCode;
-            hotkeyRecorder.Text = HotkeyText(recordedModifiers, recordedKey);
-            mode.SelectedIndex = config.Mode == "Hold" ? 1 : 0;
-            style.SelectedItem = config.Style;
-            UpdateEffectDescription();
-            startup.Checked = config.StartWithWindows;
-            mouseGestures.Checked = config.MouseGestures;
-            ShowSection(0);
-        }
-
-        private void LoadPageList()
-        {
-            grid.EndEdit();
-            CommitPage();
-            editingPage = -1;
-            pages.Items.Clear();
-            foreach (WheelPage p in config.Pages) pages.Items.Add(p.Name);
-            if (pages.Items.Count > 0) pages.SelectedIndex = 0;
-        }
-
-        private void ShowPage()
-        {
-            if (showingPage) return;
-            grid.EndEdit();
-            CommitPage();
-            showingPage = true;
-            loadingGrid = true;
-            editingPage = pages.SelectedIndex;
-            grid.Rows.Clear();
-            if (pages.SelectedIndex < 0) { loadingGrid = false; showingPage = false; return; }
-            string[] slots = { "右", "右下", "左下", "左", "左上", "右上" };
-            WheelPage p = config.Pages[pages.SelectedIndex];
-            pageName.Text = p.Name;
-            for (int i = 0; i < 6; i++) grid.Rows.Add(slots[i], p.Actions[i].Name, ActionNames.Chinese(p.Actions[i].Type), p.Actions[i].Target);
-            loadingGrid = false;
-            showingPage = false;
-            UpdateActionEditor();
-        }
-
-        private void HandleCellChange()
-        {
-            if (loadingGrid || choosingApp) return;
-            CommitPage();
-            UpdateActionEditor();
-            if (grid.CurrentRow != null && grid.CurrentCell != null && grid.CurrentCell.ColumnIndex == 2) {
-                string type = ActionNames.Id(Convert.ToString(grid.CurrentRow.Cells[2].Value));
-                if (type == "App") BrowseApp();
-                if (type == "Folder") BrowseFolder();
-            }
-            AutoSave();
-        }
-
-        private void UpdateActionEditor()
-        {
-            if (grid == null || grid.CurrentRow == null) return;
-            string type = ActionNames.Id(Convert.ToString(grid.CurrentRow.Cells[2].Value));
-            grid.CurrentRow.Cells[3].ReadOnly = type != "App" && type != "Folder" && type != "Command";
-            if (type != "App" && type != "Folder" && type != "Command") grid.CurrentRow.Cells[3].Value = "";
-        }
-
-        private void UpdateEffectDescription()
-        {
-            if (effectDescription == null || style == null) return;
-            string value = Convert.ToString(style.SelectedItem);
-            effectDescription.Text = value == "高斯模糊" ? "强背景虚化，颜色保持自然" : value == "亚克力" ? "高遮罩、磨砂颗粒、低透视" : "圆形局部背景模糊、实时焦散与折射高光";
-        }
-
-        private void CommitPage()
-        {
-            if (editingPage < 0 || editingPage >= config.Pages.Count || grid.Rows.Count != 6) return;
-            WheelPage p = config.Pages[editingPage];
-            for (int i = 0; i < 6; i++) {
-                p.Actions[i].Name = Convert.ToString(grid.Rows[i].Cells[1].Value);
-                p.Actions[i].Type = ActionNames.Id(Convert.ToString(grid.Rows[i].Cells[2].Value));
-                p.Actions[i].Target = Convert.ToString(grid.Rows[i].Cells[3].Value);
-            }
-        }
-
-        private void AddPage()
-        {
-            grid.EndEdit();
-            CommitPage();
-            WheelPage p = new WheelPage { Name = "页面 " + (config.Pages.Count + 1), Actions = new List<ActionItem>() };
-            for (int i = 0; i < 6; i++) p.Actions.Add(new ActionItem { Name = "空", Type = "None", Target = "" });
-            config.Pages.Add(p);
-            LoadPageList();
-            pages.SelectedIndex = config.Pages.Count - 1;
-            AutoSave();
-        }
-
-        private void DeletePage()
-        {
-            if (config.Pages.Count <= 1) { MessageBox.Show("至少保留一个页面。"); return; }
-            grid.EndEdit();
-            CommitPage();
-            int i = pages.SelectedIndex;
-            editingPage = -1;
-            config.Pages.RemoveAt(i);
-            LoadPageList();
-            pages.SelectedIndex = Math.Min(i, config.Pages.Count - 1);
-            AutoSave();
-        }
-
-        private void BrowseApp()
-        {
-            if (grid.CurrentRow == null || choosingApp) return;
-            choosingApp = true;
-            using (ApplicationPicker d = new ApplicationPicker()) {
-                if (d.ShowDialog(this) == DialogResult.OK && d.SelectedApplication != null) {
-                    grid.CurrentRow.Cells[1].Value = d.SelectedApplication.Name;
-                    grid.CurrentRow.Cells[2].Value = ActionNames.Chinese("App");
-                    grid.CurrentRow.Cells[3].Value = d.SelectedApplication.Target;
-                }
-            }
-            choosingApp = false;
-            CommitPage();
-            AutoSave();
-        }
-
-        private void BrowseFolder()
-        {
-            if (grid.CurrentRow == null || choosingApp) return;
-            choosingApp = true;
-            using (FolderBrowserDialog d = new FolderBrowserDialog()) {
-                d.Description = "选择要打开的文件夹";
-                d.ShowNewFolderButton = true;
-                if (d.ShowDialog(this) == DialogResult.OK && Directory.Exists(d.SelectedPath)) {
-                    grid.CurrentRow.Cells[1].Value = Path.GetFileName(d.SelectedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                    if (String.IsNullOrWhiteSpace(Convert.ToString(grid.CurrentRow.Cells[1].Value)))
-                        grid.CurrentRow.Cells[1].Value = d.SelectedPath;
-                    grid.CurrentRow.Cells[2].Value = ActionNames.Chinese("Folder");
-                    grid.CurrentRow.Cells[3].Value = d.SelectedPath;
-                }
-            }
-            choosingApp = false;
-            CommitPage();
-            AutoSave();
-        }
-
-        private void AutoSave()
-        {
-            if (initializing || loadingGrid || showingPage || choosingApp) return;
-            CommitPage();
-            config.Modifiers = recordedModifiers;
-            config.KeyCode = recordedKey;
-            config.Mode = mode.SelectedIndex == 1 ? "Hold" : "Click";
-            config.Style = Convert.ToString(style.SelectedItem);
-            bool startupChanged = config.StartWithWindows != startup.Checked;
-            config.StartWithWindows = startup.Checked;
-            config.MouseGestures = mouseGestures.Checked;
-            if (startupChanged) Startup.Set(config.StartWithWindows);
-            ConfigStore.Save(config);
-            if (ConfigSaved != null) ConfigSaved(this, EventArgs.Empty);
-        }
-
-        private void RecordHotkey(object sender, KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.ControlKey || e.KeyCode == Keys.ShiftKey || e.KeyCode == Keys.Menu || e.KeyCode == Keys.LWin || e.KeyCode == Keys.RWin) return;
-            bool win = (Native.GetAsyncKeyState((int)Keys.LWin) & 0x8000) != 0 || (Native.GetAsyncKeyState((int)Keys.RWin) & 0x8000) != 0;
-            recordedModifiers = (e.Control ? Native.MOD_CONTROL : 0) | (e.Alt ? Native.MOD_ALT : 0) | (e.Shift ? Native.MOD_SHIFT : 0) | (win ? Native.MOD_WIN : 0);
-            recordedKey = (int)e.KeyCode;
-            hotkeyRecorder.Text = HotkeyText(recordedModifiers, recordedKey);
-            e.SuppressKeyPress = true;
-            AutoSave();
-        }
-
-        private string HotkeyText(int modifiers, int keyCode)
-        {
-            List<string> parts = new List<string>();
-            if ((modifiers & Native.MOD_CONTROL) != 0) parts.Add("Ctrl");
-            if ((modifiers & Native.MOD_ALT) != 0) parts.Add("Alt");
-            if ((modifiers & Native.MOD_SHIFT) != 0) parts.Add("Shift");
-            if ((modifiers & Native.MOD_WIN) != 0) parts.Add("Win");
-            parts.Add(((Keys)keyCode).ToString());
-            return String.Join(" + ", parts.ToArray());
-        }
-
-        private Panel Section()
-        {
-            return new SettingsSection();
-        }
-
-        private GlassPanel Card(string text, int x, int y, int w, int h)
-        {
-            GlassPanel card = new GlassPanel { Left = x, Top = y, Width = w, Height = h, Radius = 17, BorderColor = Color.FromArgb(54, 94, 132, 184) };
-            Label heading = L(text, 28, 20, w - 56, 30, 12, true);
-            heading.ForeColor = Color.FromArgb(232, 242, 255);
-            heading.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            card.Controls.Add(heading);
-            return card;
-        }
-
-        private void ShowSection(int index)
-        {
-            if (index < 0 || index >= sections.Count) return;
-            if (grid != null) grid.EndEdit();
-            for (int i = 0; i < sections.Count; i++) {
-                sections[i].Visible = i == index;
-                navigation[i].BackColor = i == index ? Color.FromArgb(20, 105, 224) : Color.FromArgb(31, 45, 66);
-                navigation[i].ForeColor = i == index ? Color.White : Color.FromArgb(210, 225, 245);
-            }
-            sections[index].BringToFront();
-        }
-
-        private Panel Box(string text, int x, int y, int w, int h)
-        {
-            Panel box = new Panel { Left = x, Top = y, Width = w, Height = h, BackColor = Color.FromArgb(27,33,47), Padding = new Padding(12) };
-            Label heading = L(text, 16, 12, w - 32, 25, 11, true);
-            heading.ForeColor = Color.FromArgb(220, 235, 255);
-            box.Controls.Add(heading);
-            return box;
-        }
-        private Label L(string text, int x, int y, int w, int h, float size, bool bold)
-        {
-            return new Label { Text = text, Left = x, Top = y, Width = w, Height = h, Anchor = w >= 400 ? AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right : AnchorStyles.Top | AnchorStyles.Left, ForeColor = Color.White, BackColor = Color.Transparent, Font = new Font("Microsoft YaHei UI", size, bold ? FontStyle.Bold : FontStyle.Regular) };
-        }
-        private Button B(string text, int x, int y, int w, int h)
-        {
-            Button b = new Button { Text = text, Left = x, Top = y, Width = w, Height = h, FlatStyle = FlatStyle.Flat, ForeColor = Color.White, BackColor = Color.FromArgb(31,45,66), Cursor = Cursors.Hand, Font = new Font("Microsoft YaHei UI", 9.5f) };
-            b.FlatAppearance.BorderColor = Color.FromArgb(68, 105, 150);
-            b.FlatAppearance.BorderSize = 1;
-            b.FlatAppearance.MouseOverBackColor = Color.FromArgb(35, 82, 145);
-            b.FlatAppearance.MouseDownBackColor = Color.FromArgb(20, 105, 224);
-            return b;
-        }
-        private ComboBox C(int x, int y, int w)
-        {
-            return new ComboBox { Left = x, Top = y, Width = w, Height = 36, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = Color.FromArgb(20,34,55), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Microsoft YaHei UI", 10.5f) };
-        }
-    }
-
     static class Startup
     {
         public static void Set(bool enabled)
@@ -2510,12 +1696,20 @@ namespace OrbitWheelLite
         private KeyboardWatcher watcher;
         private MouseGestureService mouseGestures;
         private WheelForm wheel;
-        private SettingsForm settings;
+        private Process settingsProcess;
+        private Timer configTimer;
+        private string configRevision;
+        private readonly bool passive;
+        internal AppConfig CurrentConfig { get { return config; } }
+        internal string ConfigRevision { get { return configRevision; } }
 
-        public OrbitContext()
+        public OrbitContext(bool passive = false)
         {
+            this.passive = passive;
             config = ConfigStore.Load();
-            tray = new NotifyIcon { Icon = IconFactory.AppIcon(), Text = "OrbitWheel", Visible = true };
+            AppConfig initial;
+            if (ConfigStore.TryLoad(out initial, out configRevision)) config = initial;
+            tray = new NotifyIcon { Icon = IconFactory.AppIcon(), Text = "OrbitWheel", Visible = !passive };
             ContextMenuStrip menu = new ContextMenuStrip();
             menu.Items.Add("打开径向菜单", null, delegate { ShowWheel(); });
             menu.Items.Add("设置", null, delegate { ShowSettings(); });
@@ -2530,16 +1724,25 @@ namespace OrbitWheelLite
             };
             ApplyHotkey();
             ApplyMouseGestures();
+            if (!passive) {
+                try { Startup.Set(config.StartWithWindows); }
+                catch (Exception error) { LogSettingsError(error); }
+            }
+            configTimer = new Timer { Interval = 300 };
+            configTimer.Tick += delegate { try { ReloadConfiguration(); } catch (Exception error) { LogSettingsError(error); } };
+            configTimer.Start();
         }
 
         private void ApplyHotkey()
         {
+            if (passive) return;
             if (!hotkey.Set(config.Modifiers, config.KeyCode))
                 tray.ShowBalloonTip(3000, "OrbitWheel", "快捷键已被其他程序占用，请在设置中更换。", ToolTipIcon.Warning);
         }
 
         private void ApplyMouseGestures()
         {
+            if (passive) return;
             if (!config.MouseGestures) {
                 if (mouseGestures != null) { mouseGestures.Dispose(); mouseGestures = null; }
                 return;
@@ -2551,8 +1754,26 @@ namespace OrbitWheelLite
                 mouseGestures.Dispose();
                 mouseGestures = null;
                 config.MouseGestures = false;
-                ConfigStore.Save(config);
+                string revision;
+                if (ConfigStore.TrySave(config, configRevision, out revision)) configRevision = revision;
                 tray.ShowBalloonTip(3000, "OrbitWheel", "鼠标手势启动失败，已自动关闭。", ToolTipIcon.Warning);
+            }
+        }
+
+        internal void ReloadConfiguration()
+        {
+            AppConfig updated; string revision;
+            if (!ConfigStore.TryLoad(out updated, out revision) || revision == configRevision) return;
+            AppConfig previous = config;
+            // Do not execute a stale cached sector after another process edits it.
+            if (wheel != null && !wheel.IsDisposed) wheel.Close();
+            config = updated;
+            configRevision = revision;
+            if (previous.Modifiers != config.Modifiers || previous.KeyCode != config.KeyCode) ApplyHotkey();
+            if (previous.MouseGestures != config.MouseGestures) ApplyMouseGestures();
+            if (!passive && previous.StartWithWindows != config.StartWithWindows) {
+                try { Startup.Set(config.StartWithWindows); }
+                catch (Exception error) { LogSettingsError(error); }
             }
         }
 
@@ -2564,7 +1785,7 @@ namespace OrbitWheelLite
             wheel = new WheelForm(config);
             wheel.ExecuteRequested += delegate(ActionItem a) { ActionRunner.Run(a, ShowSettings); };
             wheel.FormClosed += delegate { wheel = null; if (watcher != null) { watcher.Dispose(); watcher = null; } };
-            if (config.Mode == "Hold") {
+            if (config.Mode == "Hold" && !passive) {
                 watcher = new KeyboardWatcher(config.KeyCode);
                 watcher.TriggerReleased += delegate {
                     if (wheel != null && !wheel.IsDisposed) wheel.BeginInvoke(new Action(delegate { wheel.ExecuteHoldSelection(); }));
@@ -2576,18 +1797,30 @@ namespace OrbitWheelLite
         private void ShowSettings()
         {
             try {
-                if (settings != null && !settings.IsDisposed) { settings.Show(); settings.Activate(); settings.BringToFront(); return; }
-                settings = new SettingsForm(config);
-                settings.ConfigSaved += delegate { ApplyHotkey(); ApplyMouseGestures(); };
-                settings.FormClosed += delegate { settings = null; };
-                settings.Show();
-                settings.Activate();
-                settings.BringToFront();
+                if (settingsProcess != null && !settingsProcess.HasExited) {
+                    settingsProcess.Refresh();
+                    Native.ShowWindow(settingsProcess.MainWindowHandle, 9);
+                    Native.SetForegroundWindow(settingsProcess.MainWindowHandle);
+                    return;
+                }
+                string executable = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Settings", "OrbitWheel.Settings.exe");
+                if (!File.Exists(executable)) throw new FileNotFoundException("未找到 WinUI 设置程序，请解压完整发布包。", executable);
+                if (settingsProcess != null) settingsProcess.Dispose();
+                settingsProcess = Process.Start(new ProcessStartInfo(executable) {
+                    WorkingDirectory = Path.GetDirectoryName(executable), UseShellExecute = true });
             } catch (Exception ex) {
-                Directory.CreateDirectory(ConfigStore.Folder);
-                File.AppendAllText(Path.Combine(ConfigStore.Folder, "error.log"), DateTime.Now + " Settings: " + ex + Environment.NewLine);
+                LogSettingsError(ex);
                 MessageBox.Show("设置页面打开失败：\n" + ex.Message, "OrbitWheel");
             }
+        }
+
+        private static void LogSettingsError(Exception error)
+        {
+            try {
+                Directory.CreateDirectory(ConfigStore.Folder);
+                File.AppendAllText(Path.Combine(ConfigStore.Folder, "error.log"), DateTime.Now + " Settings: " + error + Environment.NewLine);
+            } catch (IOException) { }
+              catch (UnauthorizedAccessException) { }
         }
 
         public void OpenSettingsOnStart()
@@ -2606,10 +1839,13 @@ namespace OrbitWheelLite
 
         private void Exit()
         {
+            configTimer.Stop(); configTimer.Dispose();
             tray.Visible = false;
             if (mouseGestures != null) { mouseGestures.Dispose(); mouseGestures = null; }
             hotkey.Dispose();
             if (watcher != null) watcher.Dispose();
+            if (settingsProcess != null) settingsProcess.Dispose();
+            tray.Dispose();
             Application.Exit();
         }
     }
@@ -2624,7 +1860,12 @@ namespace OrbitWheelLite
                 if (!created) return;
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
-                OrbitContext context = new OrbitContext();
+                OrbitContext context;
+                try { context = new OrbitContext(); }
+                catch (Exception error) {
+                    MessageBox.Show("配置加载失败，原文件已保留。\n" + error.Message, "OrbitWheel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
                 if (Environment.CommandLine.IndexOf("/settings", StringComparison.OrdinalIgnoreCase) >= 0) context.OpenSettingsOnStart();
                 if (Environment.CommandLine.IndexOf("/wheel", StringComparison.OrdinalIgnoreCase) >= 0) context.OpenWheelOnStart();
                 Application.Run(context);

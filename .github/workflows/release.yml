@@ -25,6 +25,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Set up .NET SDK for WinUI settings
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
       - name: Require source merged into the default branch
         shell: powershell
         run: |
@@ -44,14 +49,23 @@ jobs:
           "zip=$($package.ZipPath)" >> $env:GITHUB_OUTPUT
           "checksum=$($package.ChecksumPath)" >> $env:GITHUB_OUTPUT
           "notes=$($package.NotesPath)" >> $env:GITHUB_OUTPUT
+          "shared=$($package.SharedZip)" >> $env:GITHUB_OUTPUT
+          "sizes=$($package.SizePath)" >> $env:GITHUB_OUTPUT
+          "settings=$($package.SelfContainedSettingsPath)" >> $env:GITHUB_OUTPUT
 
       - name: Verify action reliability
         shell: powershell
         run: .\scripts\test-action-reliability.ps1
 
-      - name: Verify settings usability
+      - name: Verify legacy settings compatibility (not shipped)
         shell: powershell
         run: .\scripts\test-settings-usability.ps1
+
+      - name: Verify WinUI and WinForms shared configuration
+        shell: powershell
+        env:
+          SETTINGS_PATH: ${{ steps.package.outputs.settings }}
+        run: .\scripts\test-shared-config.ps1 -WinUI -SettingsPath $env:SETTINGS_PATH
 
       - name: Upload verified release files
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -61,6 +75,8 @@ jobs:
             ${{ steps.package.outputs.zip }}
             ${{ steps.package.outputs.checksum }}
             ${{ steps.package.outputs.notes }}
+            ${{ steps.package.outputs.shared }}
+            ${{ steps.package.outputs.sizes }}
           if-no-files-found: error
           retention-days: 14
 
@@ -87,5 +103,6 @@ jobs:
           (cd release && sha256sum --check SHA256SUMS.txt)
           options=(--draft --verify-tag --title "OrbitWheel $RELEASE_VERSION")
           if [[ "$RELEASE_VERSION" == *-* ]]; then options+=(--prerelease); fi
-          gh release create "$RELEASE_TAG" "release/OrbitWheel-$RELEASE_VERSION.zip" release/SHA256SUMS.txt \
+          gh release create "$RELEASE_TAG" "release/OrbitWheel-$RELEASE_VERSION-self-contained.zip" \
+            "release/OrbitWheel-$RELEASE_VERSION-framework-dependent.zip" release/SHA256SUMS.txt release/PACKAGE-SIZES.json \
             --repo "$GITHUB_REPOSITORY" --notes-file release/RELEASE_NOTES.md "${options[@]}"

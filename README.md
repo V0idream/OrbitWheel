@@ -63,8 +63,8 @@
 * 支持把文件夹设为动作目标，并通过资源管理器打开。
 * 打开软件前检测运行状态；目标已运行时优先切换到现有窗口。
 * 对关闭到系统托盘的软件提供唤醒兼容逻辑，减少重复启动。
-* 全新设置界面：左侧导航、玻璃卡片和分区配置页面。
-* 设置窗口支持伸缩与滚动；最小尺寸为 1080×700（96 DPI），工作区更小时以工作区为上限。
+* WinUI 3 设置界面：Fluent 原生控件、六个导航页面与系统 Mica 背景。
+* 设置窗口支持伸缩与滚动，导航在窄窗口收起；WinForms 托盘、热键和轮盘保持原有实现。
 * 全新纯图标径向菜单，环内不显示动作名称。
 * 重新设计睡眠、音量、锁定、关机、重启等系统操作图标。
 * 液态玻璃只处理圆环覆盖区域，包含背景折射、实时焦散和动态高光，不启用矩形系统背景材质。
@@ -81,7 +81,7 @@
 
 ## 🚀 使用方法
 
-1. 下载 `OrbitWheel-1.3.zip`。
+1. 下载 `OrbitWheel-2.0-self-contained.zip`。
 2. 解压后运行 `OrbitWheel.exe`。
 3. 双击托盘图标打开设置。
 4. 录制快捷键，配置每个扇区的动作。
@@ -96,10 +96,13 @@
 
 ## 🛠️ 构建
 
-系统要求：Windows PowerShell 5.1 和 .NET Framework 4.x。
+主程序：Windows PowerShell 5.1 和 .NET Framework 4.x。设置程序：.NET SDK 10.0.400 与 Windows App SDK（NuGet 自动还原）。
+
+WinUI 设置是独立进程，必须保留发布包中的 `Settings` 目录。另提供 `OrbitWheel-2.0-framework-dependent.zip` 共享运行时候选包；部署依赖及最终发行方式见 [部署说明](docs/winui-deployment.md)。
 
 ```powershell
 .\build.ps1
+.\scripts\package-release.ps1
 ```
 
 构建结果位于：
@@ -137,8 +140,8 @@ It is designed for Windows users who frequently switch apps, open repeated locat
 * Use folders as action targets and open them with File Explorer.
 * Detects whether a target app is already running and switches to the existing window when possible.
 * Provides tray wake-up compatibility for apps minimized to the system tray, reducing duplicate launches.
-* Redesigned settings window with side navigation, glass cards, and section-based configuration pages.
-* Resizable, scrollable settings with a 1080×700 minimum at 96 DPI, capped to smaller screen work areas.
+* Native WinUI 3 settings with Fluent controls, six navigation pages, and a system Mica backdrop.
+* Resizable, scrollable settings with adaptive navigation; the WinForms tray, hotkeys, and radial wheel retain their implementation.
 * Icon-only radial menu without action names inside the wheel.
 * Redesigned icons for sleep, volume, lock, shutdown, restart, and other system actions.
 * Liquid glass is rendered only inside the wheel, with local refraction, realtime caustics, and animated highlights instead of a rectangular system backdrop.
@@ -153,7 +156,7 @@ It is designed for Windows users who frequently switch apps, open repeated locat
 
 ## Usage
 
-1. Download `OrbitWheel-1.3.zip`.
+1. Download `OrbitWheel-2.0-self-contained.zip`.
 2. Extract it and run `OrbitWheel.exe`.
 3. Double-click the tray icon to open settings.
 4. Record a hotkey and configure actions for each sector.
@@ -166,10 +169,13 @@ Configuration is saved at:
 
 ## Build
 
-Requirements: Windows PowerShell 5.1 and .NET Framework 4.x.
+Host: Windows PowerShell 5.1 and .NET Framework 4.x. Settings: .NET SDK 10.0.400 and Windows App SDK (restored through NuGet).
+
+Keep the `Settings` directory beside the host EXE. A separate `OrbitWheel-2.0-framework-dependent.zip` candidate uses shared runtimes; see [deployment notes](docs/winui-deployment.md).
 
 ```powershell
 .\build.ps1
+.\scripts\package-release.ps1
 ```
 
 The build output is located at:
