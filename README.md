@@ -2,7 +2,7 @@
 
 Windows 径向快捷操作工具。在鼠标位置召出六等分圆环，快速启动应用、打开文件夹或执行系统操作。
 
-**简体中文** · [English](en.md)
+**简体中文** · [English](README.en.md)
 
 [![Release](https://img.shields.io/github/v/release/V0idream/OrbitWheel)](https://github.com/V0idream/OrbitWheel/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
