@@ -16,7 +16,7 @@ $runLog = Join-Path $testPath 'run.log'
     /reference:"$wpfPath\UIAutomationClient.dll" `
     /reference:"$wpfPath\UIAutomationTypes.dll" /reference:"$wpfPath\WindowsBase.dll" `
     /resource:"$repoRoot\assets\system-icons-sheet.png",OrbitWheel.SystemIcons `
-    "$repoRoot\OrbitWheelLite.cs" "$repoRoot\tests\ActionReliabilityTests.cs" *> $buildLog
+    "$repoRoot\OrbitWheelLite.cs" "$repoRoot\shared\Models.cs" "$repoRoot\shared\ActionNames.cs" "$repoRoot\shared\ConfigStore.cs" "$repoRoot\shared\ApplicationCatalog.cs" "$repoRoot\legacy\WinFormsSettings.cs" "$repoRoot\tests\ActionReliabilityTests.cs" *> $buildLog
 $buildExit = $LASTEXITCODE
 Get-Content -LiteralPath $buildLog -TotalCount 60
 if ($buildExit -ne 0) { throw "Regression harness build failed: $buildExit" }
@@ -30,7 +30,7 @@ $fixturePath = Join-Path $testPath 'OrbitReliabilityTarget.exe'
     /reference:"$wpfPath\UIAutomationClient.dll" `
     /reference:"$wpfPath\UIAutomationTypes.dll" /reference:"$wpfPath\WindowsBase.dll" `
     /resource:"$repoRoot\assets\system-icons-sheet.png",OrbitWheel.SystemIcons `
-    "$repoRoot\OrbitWheelLite.cs" "$repoRoot\tests\ActionReliabilityTests.cs" *> $buildLog
+    "$repoRoot\OrbitWheelLite.cs" "$repoRoot\shared\Models.cs" "$repoRoot\shared\ActionNames.cs" "$repoRoot\shared\ConfigStore.cs" "$repoRoot\shared\ApplicationCatalog.cs" "$repoRoot\legacy\WinFormsSettings.cs" "$repoRoot\tests\ActionReliabilityTests.cs" *> $buildLog
 $buildExit = $LASTEXITCODE
 Get-Content -LiteralPath $buildLog -TotalCount 60
 if ($buildExit -ne 0) { throw "GUI fixture build failed: $buildExit" }

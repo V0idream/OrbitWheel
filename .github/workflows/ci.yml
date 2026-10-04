@@ -24,6 +24,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up .NET SDK for WinUI settings
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
       - name: Build and verify package
         id: package
         shell: powershell
@@ -31,14 +36,23 @@ jobs:
           $package = & .\scripts\package-release.ps1
           "zip=$($package.ZipPath)" >> $env:GITHUB_OUTPUT
           "checksum=$($package.ChecksumPath)" >> $env:GITHUB_OUTPUT
+          "shared=$($package.SharedZip)" >> $env:GITHUB_OUTPUT
+          "sizes=$($package.SizePath)" >> $env:GITHUB_OUTPUT
+          "settings=$($package.SelfContainedSettingsPath)" >> $env:GITHUB_OUTPUT
 
       - name: Verify action reliability
         shell: powershell
         run: .\scripts\test-action-reliability.ps1
 
-      - name: Verify settings usability
+      - name: Verify legacy settings compatibility (not shipped)
         shell: powershell
         run: .\scripts\test-settings-usability.ps1
+
+      - name: Verify WinUI and WinForms shared configuration
+        shell: powershell
+        env:
+          SETTINGS_PATH: ${{ steps.package.outputs.settings }}
+        run: .\scripts\test-shared-config.ps1 -WinUI -SettingsPath $env:SETTINGS_PATH
 
       - name: Upload build for review
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -47,5 +61,7 @@ jobs:
           path: |
             ${{ steps.package.outputs.zip }}
             ${{ steps.package.outputs.checksum }}
+            ${{ steps.package.outputs.shared }}
+            ${{ steps.package.outputs.sizes }}
           if-no-files-found: error
           retention-days: 7
