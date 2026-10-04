@@ -137,7 +137,14 @@ class SettingsUsabilityTests
             Size trackLimit = SystemInformation.MaxWindowTrackSize;
             Size expectedMinimum = new Size(Math.Min((int)(1080 * scale), Math.Min(workArea.Width, trackLimit.Width)),
                                             Math.Min((int)(700 * scale), Math.Min(workArea.Height, trackLimit.Height)));
-            Assert(form.MinimumSize == expectedMinimum, label + " minimum does not match its work area: actual=" + form.MinimumSize + " expected=" + expectedMinimum + " trackLimit=" + trackLimit);
+            // WinForms can further clamp MinimumSize to the real desktop even
+            // when the test supplies a larger virtual work area (headless CI).
+            Assert(form.MinimumSize.Width > 0 && form.MinimumSize.Height > 0 &&
+                   form.MinimumSize.Width <= expectedMinimum.Width && form.MinimumSize.Height <= expectedMinimum.Height,
+                   label + " minimum exceeds its work area: actual=" + form.MinimumSize + " expected upper limit=" + expectedMinimum);
+            Size nativeWorkArea = Screen.FromControl(form).WorkingArea.Size;
+            if (expectedMinimum.Width < nativeWorkArea.Width && expectedMinimum.Height < nativeWorkArea.Height)
+                Assert(form.MinimumSize == expectedMinimum, label + " minimum changed within the available desktop");
             form.Size = new Size(1, 1);
             Assert(form.Size == form.MinimumSize, label + " native minimum was not enforced");
             Control shell = form.Controls["settingsShell"];
