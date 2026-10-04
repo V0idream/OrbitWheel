@@ -2075,6 +2075,7 @@ namespace OrbitWheelLite
             BackColor = Color.FromArgb(7, 15, 30);
             ForeColor = Color.White;
             Font = new Font("Microsoft YaHei UI", 9.5f);
+            Padding = new Padding(18);
             AutoScaleDimensions = new SizeF(96f, 96f);
             AutoScaleMode = AutoScaleMode.Dpi;
             initializing = true;
@@ -2114,7 +2115,7 @@ namespace OrbitWheelLite
 
         private void Build()
         {
-            GlassPanel shell = new GlassPanel { Name = "settingsShell", Left = 18, Top = 18, Width = 1144, Height = 724, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right, Radius = 22, BorderColor = Color.FromArgb(85, 112, 161, 220) };
+            GlassPanel shell = new GlassPanel { Name = "settingsShell", Left = 18, Top = 18, Width = 1144, Height = 724, Dock = DockStyle.Fill, Radius = 22, BorderColor = Color.FromArgb(85, 112, 161, 220) };
             Controls.Add(shell);
             Label appMark = L("◉", 26, 20, 44, 44, 24, false); appMark.Anchor = AnchorStyles.Top | AnchorStyles.Left; appMark.ForeColor = Color.FromArgb(68, 178, 255); shell.Controls.Add(appMark);
             Label title = L("设置", 78, 24, 260, 38, 20, true); title.Anchor = AnchorStyles.Top | AnchorStyles.Left; shell.Controls.Add(title);
