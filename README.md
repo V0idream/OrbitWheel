@@ -80,7 +80,7 @@
 
 ## 🚀 使用方法
 
-1. 下载 `OrbitWheel-1.1.2.zip`。
+1. 下载 `OrbitWheel-1.2.zip`。
 2. 解压后运行 `OrbitWheel.exe`。
 3. 双击托盘图标打开设置。
 4. 录制快捷键，配置每个扇区的动作。
@@ -151,7 +151,7 @@ It is designed for Windows users who frequently switch apps, open repeated locat
 
 ## Usage
 
-1. Download `OrbitWheel-1.1.2.zip`.
+1. Download `OrbitWheel-1.2.zip`.
 2. Extract it and run `OrbitWheel.exe`.
 3. Double-click the tray icon to open settings.
 4. Record a hotkey and configure actions for each sector.

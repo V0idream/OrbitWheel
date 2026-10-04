@@ -49,10 +49,10 @@ dist/release/RELEASE_NOTES.md
 
 ZIP 根目录仅包含 `OrbitWheel.exe`、`README.md`、`RELEASE_NOTES.md` 和 `LICENSE`。本地审计文件等其他 `dist` 内容不会进入分发包。
 
-发布时可以明确指定产品版本，例如当前基线：
+发布时可以明确指定产品版本，例如：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.1.2
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.2
 ```
 
 版本支持两段或三段数字及可选预发布后缀。产品版本 `1.2` 对应 EXE 数字版本 `1.2.0.0`，`1.1.2` 对应 `1.1.2.0`。启用两段产品版本时，README、关于页面、发布说明和 Tag 应同步调整；保留已发布的历史版本。
@@ -67,7 +67,21 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-releas
 
 `Windows build` 在 GitHub 托管的 Windows 2022 runner 上构建、检查并打包，上传 ZIP 和 SHA256 文件供维护者下载验收。权限为只读，不创建 Release。
 
-这些检查覆盖构建和打包。功能修复 PR 应另外加入对应回归检查；真实快捷键、鼠标手势、主题、DPI 和窗口操作等交互验收，应单独报告实际验证结果。
+CI 同时运行 `1.2` 动作可靠性回归，检查扇区保存、释放位置和真实应用进程身份。可在本地执行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-action-reliability.ps1
+```
+
+测试入口与生产源码共同编译，使用独立配置目录和自建进程，不启动 `OrbitContext`、注册全局热键、修改启动项或执行配置动作。配置重读另外启动一个测试进程。窗口位于屏幕外，鼠标释放检查会短暂改变鼠标位置并立即恢复。
+
+真实托盘唤醒检查需要有任务栏的 Windows 桌面：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test-action-reliability.ps1 -IncludeTray
+```
+
+该检查创建专用通知图标，调用生产托盘双击逻辑并确认目标进程窗口恢复及鼠标位置还原；执行时会短暂操作任务栏和鼠标，完成后移除自建图标并关闭测试进程。无人值守 CI 不运行此项。真实快捷键、鼠标手势、主题、DPI 和常用软件的托盘兼容性仍应单独报告实际验证结果。
 
 ## Release workflow
 
@@ -75,7 +89,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-releas
 
 1. 确认 Tag 指向的提交已经合入 `OrbitWheel`；
 2. 确认 Tag 的产品版本与 EXE 数字版本相符；
-3. 在 Windows runner 构建、验证并生成 ZIP、SHA256 和发布说明；
+3. 在 Windows runner 构建、运行动作可靠性回归、验证并生成 ZIP、SHA256 和发布说明；
 4. 在独立 job 下载构建产物并再次核对 ZIP 的 SHA256；
 5. 用 `GITHUB_TOKEN` 创建 Draft Release，附 ZIP 和 `SHA256SUMS.txt`，正文使用 `RELEASE_NOTES.md`；带后缀的版本标记为预发布。
 
