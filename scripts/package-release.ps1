@@ -37,7 +37,7 @@ foreach ($mode in @('self-contained','framework-dependent')) {
     }
     $stage = Join-Path $distPath ('package-staging\' + $mode + '-' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force $stage | Out-Null
-    foreach ($file in @('README.md','en.md','CONTRIBUTING.md','RELEASE_NOTES.md','LICENSE')) { Copy-Item -LiteralPath (Join-Path $repoRoot $file) -Destination $stage }
+    foreach ($file in @('README.md','README.en.md','CONTRIBUTING.md','RELEASE_NOTES.md','LICENSE')) { Copy-Item -LiteralPath (Join-Path $repoRoot $file) -Destination $stage }
     foreach ($file in @('assets\settings-fluent.jpg','docs\winui-deployment.md')) {
         $destination = Join-Path $stage $file
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
