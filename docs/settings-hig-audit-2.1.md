@@ -155,4 +155,4 @@ conflict recovery action=重新加载
 
 ## 后续修复跟踪
 
-已建立 [总跟踪 Issue #10](https://github.com/V0idream/OrbitWheel/issues/10) 及执行 Issues #11–#17，覆盖全部 16 项发现。各 Issue 包含独立的问题证据、分步建议、依赖与关闭条件；执行顺序见 [2.1 分步修复计划](settings-2.1-repair-plan.md)。修复尚未实施。
+已建立 [总跟踪 Issue #10](https://github.com/V0idream/OrbitWheel/issues/10) 及执行 Issues #11–#17，覆盖全部 16 项发现。各 Issue 包含独立的问题证据、分步建议、依赖与关闭条件；执行顺序见 [2.1 分步修复计划](settings-2.1-repair-plan.md)。后续修复及验收已完成，Issues 已关闭；具体实现、自动化与用户人工验收来源，以及 P3 延期决定见 [2.1 验收记录](acceptance-2.1.md)。前文保留审计基线的发现与状态。

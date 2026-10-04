@@ -49,7 +49,7 @@ dist/release/SHA256SUMS.txt
 dist/release/RELEASE_NOTES.md
 ```
 
-ZIP 根目录包含 WinForms 主程序、说明与许可证，`Settings/` 包含完整 WinUI 程序，另附 `DEPLOYMENT.md`。其他 `dist` 内容不会进入分发包。自包含与共享运行时版的体积分别记录，尚未锁定正式发行方式。
+ZIP 根目录包含 WinForms 主程序、中英文 README、贡献说明、发行说明与许可证，`Settings/` 包含完整 WinUI 程序，另附 `DEPLOYMENT.md`、部署说明和 README 引用的设置截图。其他 `dist` 内容不会进入分发包。2.1 同时发布自包含与共享运行时包，推荐使用自包含包，两种包的体积分别记录。
 
 发布时可以明确指定产品版本，例如：
 
