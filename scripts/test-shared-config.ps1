@@ -39,7 +39,7 @@ try {
             if ($ui.HasExited -or [DateTime]::UtcNow -gt $deadline) { throw "WinUI did not produce a result. Evidence: $evidencePath" }
             Start-Sleep -Milliseconds 200
         }
-        $report = Get-Content $reportPath -Raw | ConvertFrom-Json
+        $report = Get-Content $reportPath -Encoding UTF8 -Raw | ConvertFrom-Json
         if (-not $report.success) { throw $report.error }
         $report.steps | ForEach-Object { Write-Host "PASS $_" }
         Write-Host 'PASS real WinUI and WinForms processes synchronized through the production configuration contract.'

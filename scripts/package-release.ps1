@@ -19,9 +19,9 @@ $expected = [version]($parts -join '.')
 if ($assemblyVersion -ne $expected -or [version]([Diagnostics.FileVersionInfo]::GetVersionInfo($exePath).FileVersion) -ne $expected) {
     throw "Tag/product version $Version does not match executable version $assemblyVersion."
 }
-$notes = (Get-Content (Join-Path $repoRoot 'RELEASE_NOTES.md') -TotalCount 1).Trim()
+$notes = (Get-Content (Join-Path $repoRoot 'RELEASE_NOTES.md') -Encoding UTF8 -TotalCount 1).Trim()
 if ($notes -notin @("# OrbitWheel $Version", "# OrbitWheel $baseVersion")) { throw 'Release notes version mismatch.' }
-$readme = Get-Content (Join-Path $repoRoot 'README.md') -Raw
+$readme = Get-Content (Join-Path $repoRoot 'README.md') -Encoding UTF8 -Raw
 $mentions = @([regex]::Matches($readme, 'OrbitWheel-(?<version>\d+\.\d+(?:\.\d+)?)-(?:self-contained|framework-dependent)\.zip') |
     ForEach-Object { $_.Groups['version'].Value })
 if ($mentions.Count -eq 0 -or @($mentions | Where-Object { $_ -notin @($Version,$baseVersion) }).Count) { throw 'README package version mismatch.' }
@@ -78,7 +78,7 @@ $sizePath = Join-Path $releasePath 'PACKAGE-SIZES.json'
 $sizeReport = @($packages | Select-Object Mode,FileCount,ZipBytes,UnpackedBytes)
 [IO.File]::WriteAllText($sizePath, ($sizeReport | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
 $notesPath = Join-Path $releasePath 'RELEASE_NOTES.md'
-$history = Get-Content (Join-Path $repoRoot 'RELEASE_NOTES.md') -Raw
+$history = Get-Content (Join-Path $repoRoot 'RELEASE_NOTES.md') -Encoding UTF8 -Raw
 # The leading heading belongs to the current release; stop at the next version heading.
 $versionHeading = '(?m)^#{1,2}\s+(?:OrbitWheel\s+)?\d+\.\d+(?:\.\d+)?(?:-[\w.-]+)?\s*\r?$'
 $headings = [regex]::Matches($history, $versionHeading)
