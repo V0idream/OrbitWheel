@@ -52,3 +52,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-releas
 5. 记录显示器分辨率、缩放、实际最小外部尺寸及结果。多显示器或工作区较小时，补查窗口打开位置和滚动可达性。
 
 CI 和 Release 构建 job 已加入设置回归。本文不把本机检查计作远端 CI 或正式发布结果。
+
+## 发布流程复核
+
+首轮 PR CI `37180237637` 的构建、打包和动作可靠性检查通过，设置回归的最小尺寸断言失败。无桌面 runner 的原生最大可跟踪窗口尺寸小于测试声明的工作区，WinForms 会进一步限制 `MinimumSize`。修正后，窗口和测试均显式考虑 `SystemInformation.MaxWindowTrackSize`；本机再次通过 66 项设置检查，证据目录为 `dist/tests/settings-4dec7c6424ad4bb89a74942524189793`。远端重跑结果以 Actions 为准。

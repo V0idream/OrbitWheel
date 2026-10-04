@@ -2103,8 +2103,9 @@ namespace OrbitWheelLite
         {
             // Screen coordinates share the window's DPI context, including the
             // Windows compatibility scaling used by this .NET Framework app.
-            MinimumSize = new Size(Math.Min((int)Math.Round(1080 * layoutScale), workingArea.Width),
-                                   Math.Min((int)Math.Round(700 * layoutScale), workingArea.Height));
+            Size trackLimit = SystemInformation.MaxWindowTrackSize;
+            MinimumSize = new Size(Math.Min((int)Math.Round(1080 * layoutScale), Math.Min(workingArea.Width, trackLimit.Width)),
+                                   Math.Min((int)Math.Round(700 * layoutScale), Math.Min(workingArea.Height, trackLimit.Height)));
             Size = new Size(Math.Min(Width, workingArea.Width), Math.Min(Height, workingArea.Height));
             if (StartPosition == FormStartPosition.CenterScreen)
                 Location = new Point(workingArea.Left + (workingArea.Width - Width) / 2,

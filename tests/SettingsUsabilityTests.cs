@@ -134,8 +134,10 @@ class SettingsUsabilityTests
         string label = ((int)(scale * 100)) + "-" + name;
         using (PassiveSettingsForm form = Open(scale, Path.Combine(evidence, label))) {
             Invoke(form, "FitToWorkingArea", new Rectangle(Point.Empty, workArea));
-            Size expectedMinimum = new Size(Math.Min((int)(1080 * scale), workArea.Width), Math.Min((int)(700 * scale), workArea.Height));
-            Assert(form.MinimumSize == expectedMinimum, label + " minimum does not match its work area");
+            Size trackLimit = SystemInformation.MaxWindowTrackSize;
+            Size expectedMinimum = new Size(Math.Min((int)(1080 * scale), Math.Min(workArea.Width, trackLimit.Width)),
+                                            Math.Min((int)(700 * scale), Math.Min(workArea.Height, trackLimit.Height)));
+            Assert(form.MinimumSize == expectedMinimum, label + " minimum does not match its work area: actual=" + form.MinimumSize + " expected=" + expectedMinimum + " trackLimit=" + trackLimit);
             form.Size = new Size(1, 1);
             Assert(form.Size == form.MinimumSize, label + " native minimum was not enforced");
             Control shell = form.Controls["settingsShell"];
