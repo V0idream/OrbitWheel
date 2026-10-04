@@ -18,6 +18,7 @@ class ActionReliabilityTests
     const BindingFlags PrivateStatic = BindingFlags.Static | BindingFlags.NonPublic;
     const string FixtureName = "OrbitReliabilityTarget";
     const uint HideFixture = 0x8002;
+    const uint HideTrayFixture = 0x8003;
     static string sandbox;
     static int passed;
     [DllImport("user32.dll")] static extern IntPtr SendMessage(IntPtr hwnd, uint message, IntPtr wParam, IntPtr lParam);
@@ -328,7 +329,7 @@ class ActionReliabilityTests
         try {
             process = StartFixture(path);
             IntPtr hwnd = Window(path, true);
-            Native.PostMessage(hwnd, HideFixture, IntPtr.Zero, IntPtr.Zero);
+            Native.PostMessage(hwnd, HideTrayFixture, IntPtr.Zero, IntPtr.Zero);
             Wait(delegate { return !Native.IsWindowVisible(hwnd); }, "Tray fixture did not hide");
             Assert(!(bool)Runner("HasConflictingProcessIdentity", FixtureName, path, ""), "Unambiguous fixture reported a conflict");
             List<string> aliases = (List<string>)Runner("BuildTrayAliases", FixtureName, FixtureName, path);
@@ -391,19 +392,26 @@ class ActionReliabilityTests
             Location = new Point(-20000, -20000);
             Size = new Size(400, 300);
             ShowInTaskbar = true;
-            tray = new NotifyIcon { Text = FixtureName, Icon = SystemIcons.Application };
-            tray.MouseDoubleClick += delegate { File.WriteAllText(Path.Combine(folder, "tray-wakeup.txt"), "double-click"); Show(); tray.Visible = false; };
             Shown += delegate { File.WriteAllText(Path.Combine(folder, "ready-" + pid + ".txt"), Handle.ToString()); };
-            FormClosed += delegate { tray.Dispose(); };
+            FormClosed += delegate { if (tray != null) tray.Dispose(); };
         }
         protected override bool ShowWithoutActivation { get { return true; } }
         protected override void WndProc(ref Message message)
         {
-            if (message.Msg == HideFixture) { tray.Visible = true; Hide(); return; }
+            if (message.Msg == HideFixture) { Hide(); return; }
+            if (message.Msg == HideTrayFixture) {
+                if (tray == null) {
+                    tray = new NotifyIcon { Text = FixtureName, Icon = SystemIcons.Application };
+                    tray.MouseDoubleClick += delegate { File.WriteAllText(Path.Combine(folder, "tray-wakeup.txt"), "double-click"); Show(); tray.Visible = false; };
+                }
+                tray.Visible = true;
+                Hide();
+                return;
+            }
             if (message.Msg == 0x0112 && (message.WParam.ToInt64() & 0xFFF0) == 0xF120) {
                 File.WriteAllText(Path.Combine(folder, "restore-" + pid + ".txt"), "restore");
                 Show();
-                tray.Visible = false;
+                if (tray != null) tray.Visible = false;
             }
             base.WndProc(ref message);
         }
