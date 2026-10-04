@@ -64,6 +64,7 @@
 * 打开软件前检测运行状态；目标已运行时优先切换到现有窗口。
 * 对关闭到系统托盘的软件提供唤醒兼容逻辑，减少重复启动。
 * 全新设置界面：左侧导航、玻璃卡片和分区配置页面。
+* 设置窗口支持伸缩与滚动；最小尺寸为 1080×700（96 DPI），工作区更小时以工作区为上限。
 * 全新纯图标径向菜单，环内不显示动作名称。
 * 重新设计睡眠、音量、锁定、关机、重启等系统操作图标。
 * 液态玻璃只处理圆环覆盖区域，包含背景折射、实时焦散和动态高光，不启用矩形系统背景材质。
@@ -80,7 +81,7 @@
 
 ## 🚀 使用方法
 
-1. 下载 `OrbitWheel-1.2.zip`。
+1. 下载 `OrbitWheel-1.3.zip`。
 2. 解压后运行 `OrbitWheel.exe`。
 3. 双击托盘图标打开设置。
 4. 录制快捷键，配置每个扇区的动作。
@@ -137,6 +138,7 @@ It is designed for Windows users who frequently switch apps, open repeated locat
 * Detects whether a target app is already running and switches to the existing window when possible.
 * Provides tray wake-up compatibility for apps minimized to the system tray, reducing duplicate launches.
 * Redesigned settings window with side navigation, glass cards, and section-based configuration pages.
+* Resizable, scrollable settings with a 1080×700 minimum at 96 DPI, capped to smaller screen work areas.
 * Icon-only radial menu without action names inside the wheel.
 * Redesigned icons for sleep, volume, lock, shutdown, restart, and other system actions.
 * Liquid glass is rendered only inside the wheel, with local refraction, realtime caustics, and animated highlights instead of a rectangular system backdrop.
@@ -151,7 +153,7 @@ It is designed for Windows users who frequently switch apps, open repeated locat
 
 ## Usage
 
-1. Download `OrbitWheel-1.2.zip`.
+1. Download `OrbitWheel-1.3.zip`.
 2. Extract it and run `OrbitWheel.exe`.
 3. Double-click the tray icon to open settings.
 4. Record a hotkey and configure actions for each sector.
